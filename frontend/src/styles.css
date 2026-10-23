@@ -1,27 +1,37 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --background: oklch(0.98 0.008 100);
-  --foreground: oklch(0.22 0.018 145);
-  --card: oklch(1 0 0);
+  --background: oklch(0.975 0.009 101);
+  --foreground: oklch(0.22 0.022 151);
+  --card: oklch(0.998 0.003 100);
   --card-foreground: var(--foreground);
-  --muted: oklch(0.955 0.01 100);
-  --muted-foreground: oklch(0.49 0.018 145);
-  --primary: oklch(0.43 0.09 151);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --muted: oklch(0.947 0.014 102);
+  --muted-foreground: oklch(0.5 0.022 151);
+  --primary: oklch(0.39 0.092 151);
   --primary-foreground: oklch(0.99 0.005 145);
-  --secondary: oklch(0.92 0.025 145);
-  --secondary-foreground: oklch(0.28 0.05 151);
-  --accent: oklch(0.94 0.035 151);
-  --accent-foreground: oklch(0.29 0.07 151);
-  --warning: oklch(0.97 0.045 90);
-  --warning-foreground: oklch(0.34 0.065 70);
-  --border: oklch(0.89 0.015 115);
-  --input: var(--border);
-  --ring: oklch(0.55 0.1 151);
+  --secondary: oklch(0.9 0.033 147);
+  --secondary-foreground: oklch(0.25 0.06 151);
+  --accent: oklch(0.925 0.045 149);
+  --accent-foreground: oklch(0.27 0.07 151);
+  --warning: oklch(0.965 0.045 88);
+  --warning-foreground: oklch(0.34 0.067 70);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.88 0.018 112);
+  --input: oklch(0.85 0.021 112);
+  --ring: oklch(0.52 0.12 150);
   --radius: 1rem;
+  --radius-xs: calc(var(--radius) - 0.75rem);
+  --radius-sm: calc(var(--radius) - 0.5rem);
+  --radius-md: calc(var(--radius) - 0.25rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.25rem);
 }
 
 @theme inline {
@@ -29,6 +39,8 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-primary: var(--primary);
@@ -39,12 +51,71 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --radius-xl: var(--radius);
 }
 
-body { margin: 0; min-width: 320px; }
-.panel { border: 1px solid var(--border); border-radius: 1.25rem; background: var(--card); padding: 1.5rem; box-shadow: 0 8px 28px rgb(39 54 38 / 5%); }
-.eyebrow { font-size: .7rem; font-weight: 700; letter-spacing: .12em; color: var(--muted-foreground); }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--background); }
+::selection { background: var(--accent); color: var(--accent-foreground); }
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 1.5rem;
+  background: var(--card);
+  padding: clamp(1rem, 2vw, 1.5rem);
+  box-shadow: 0 12px 34px color-mix(in oklab, var(--foreground) 4%, transparent);
+}
+.progress-bar { display: block; gap: 0; }
+.progress-bar [data-slot="progress-track"] { height: .5rem; }
+.progress-bar [data-slot="progress-indicator"] { border-radius: 9999px; transition: width .55s ease; }
+.eyebrow { font-size: .67rem; font-weight: 700; letter-spacing: .14em; color: var(--muted-foreground); }
+.app-header { position: sticky; top: 0; z-index: 20; }
+.brand-mark { box-shadow: 0 5px 14px color-mix(in oklab, var(--primary) 22%, transparent); }
+.brand-name span { color: var(--primary); }
+.dashboard-hero { isolation: isolate; box-shadow: 0 18px 55px color-mix(in oklab, var(--primary) 20%, transparent); }
+.hero-orb { position: absolute; z-index: -1; border: 1px solid color-mix(in oklab, var(--primary-foreground) 12%, transparent); border-radius: 9999px; pointer-events: none; }
+.hero-orb-one { width: 440px; height: 440px; right: 4%; top: -70%; background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 12%, transparent), transparent 67%); }
+.hero-orb-two { width: 330px; height: 330px; right: 27%; bottom: -70%; background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 8%, transparent), transparent 68%); }
+.topic-card { min-width: 0; }
+.review-good { background: color-mix(in oklab, var(--accent) 78%, var(--card)); color: var(--foreground); }
+.review-partial { background: color-mix(in oklab, var(--warning) 72%, var(--card)); color: var(--foreground); }
+.review-try { background: color-mix(in oklab, var(--muted) 88%, var(--card)); color: var(--foreground); }
+.flow-shell .react-flow { background: transparent; }
+.flow-shell .react-flow__node-default { border: 1px solid var(--border); transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease; cursor: pointer; }
+.flow-shell .react-flow__handle { width: 1px; height: 1px; border: 0; background: transparent; opacity: 0; }
+.flow-shell .react-flow__node-default:hover { border-color: var(--ring); }
+.flow-node-content { display: flex; flex-direction: column; gap: 7px; white-space: normal; text-align: left; }
+.flow-node-status { display: inline-flex; align-items: center; gap: 5px; color: var(--muted-foreground); font-size: 10px; font-weight: 600; }
+.flow-node-title { color: var(--foreground); font-size: 13px; font-weight: 650; line-height: 1.25; }
+.flow-node-progress { display: flex; flex-direction: column; gap: 4px; color: var(--muted-foreground); font-size: 9px; }
+.flow-node-progress-label { display: flex; justify-content: space-between; gap: 6px; }
+.flow-node-progress-track { display: block; height: 5px; overflow: hidden; border-radius: 999px; background: var(--muted); }
+.flow-node-progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); transition: width .3s ease; }
+.flow-shell .react-flow__controls { overflow: hidden; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 4px 14px color-mix(in oklab, var(--foreground) 8%, transparent); }
+.flow-shell .react-flow__controls-button { width: 30px; height: 30px; border-bottom: 1px solid var(--border); background: var(--card); fill: var(--foreground); }
+.flow-shell .react-flow__controls-button:hover { background: var(--accent); }
+.flow-shell .react-flow__edge-path { stroke: var(--border); }
+.flow-shell .react-flow__attribution { display: none; }
+.chat-transcript, .tutor-messages { scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
+.setup-aside { background-image: radial-gradient(circle at 95% 5%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 35%); }
+.context-card { align-self: start; }
+
+@media (max-width: 640px) {
+  .panel { border-radius: 1.25rem; }
+  .flow-shell { margin-inline: -0.25rem; }
+  .hero-stat-card { min-width: 0; }
+  .app-header nav { max-width: 44vw; }
+  .app-header nav > * { padding-inline: .65rem; }
+  .brand-name { font-size: .94rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
