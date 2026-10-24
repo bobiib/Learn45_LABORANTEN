@@ -17,6 +17,24 @@ The shared shadcn/ui components live in `frontend/src/components/ui/` and are co
 
 ## Start locally
 
+### Quick demo (no API key)
+
+The frontend runs against scripted fixtures by default. Start it without the backend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the local URL printed by Vite. This mode keeps demo data in this browser's `localStorage` and does not call Gemini.
+
+### Full stack (AI features)
+
+For the backend-connected experience, add a Gemini key as described below and run `./start.sh` from the repository root. The script installs missing dependencies, starts FastAPI on `http://localhost:8000` and Vite on `http://localhost:5173`, and stops both services when you press Ctrl+C. It requires `backend/.env` to contain a non-empty `GEMINI_API_KEY`.
+
+To start either service manually, use the instructions below.
+
 ### Frontend
 
 ```bash
@@ -26,6 +44,8 @@ npm run dev
 ```
 
 Use `npm run lint` to catch raw buttons that bypass the shared interaction styles. The frontend starts in scripted demo mode and stores Lea's context and uploaded-source fixtures in this browser. Copy `frontend/.env.example` to `frontend/.env.local` to configure it.
+
+Run `npm run build` to type-check the frontend and create a production build in `frontend/dist/`.
 
 ### Frontend flow
 
