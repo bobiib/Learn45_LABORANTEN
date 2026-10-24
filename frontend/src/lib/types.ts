@@ -67,6 +67,8 @@ export type AnswerSubmission = {
   answer: string
   hintsUsed: number
   tutorUsed: boolean
+  theoryUsed?: boolean
+  supportUsed?: boolean
   difficulty: 'too-easy' | 'about-right' | 'too-hard' | null
   activity?: LearningActivity
   selectedOptions?: string[]

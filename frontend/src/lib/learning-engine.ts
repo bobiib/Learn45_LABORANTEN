@@ -152,7 +152,7 @@ export function evaluatePractice(input: AnswerSubmission): ReviewResult {
     correctness,
     headline: pending ? 'Deine Arbeit ist bereit zur Prüfung.' : codeTask ? 'Dein Projekt ist angekommen.' : correctness === 'strong' ? 'Das ist ein klarer Schritt nach vorn.' : correctness === 'partial' ? 'Eine gute Grundlage. Ein Detail fehlt noch.' : 'Wir machen den nächsten Schritt kleiner.',
     feedback: pending ? 'Die Datei ist für diese Sitzung ausgewählt. Eine fachliche Auswertung dieses Dateiformats braucht die Backend-Anbindung.' : codeTask ? 'Die Demo kann nach Strukturelementen im Quelltext suchen. Ob das Spiel korrekt läuft, muss eine isolierte Code-Prüfung im Backend feststellen.' : correctness === 'strong' ? 'Die Kriterien dieser Übung sind im Demo-Check erkennbar. Ein neuer Kontext zeigt jetzt, ob du das Prinzip selbstständig übertragen kannst.' : nextGap?.explanation ?? 'Lass uns den Gedanken an einem kleineren Beispiel noch einmal ausprobieren.',
-    evidenceLabel: input.learningMode === 'together' ? 'Gemeinsam erarbeitet' : input.hintsUsed > 0 || input.tutorUsed ? 'Mit Unterstützung erarbeitet' : 'Selbstständig bearbeitet',
+    evidenceLabel: input.learningMode === 'together' ? 'Gemeinsam erarbeitet' : input.supportUsed || input.hintsUsed > 0 || input.tutorUsed || input.theoryUsed ? 'Mit Unterstützung erarbeitet' : 'Selbstständig bearbeitet',
     evidenceDelta: pending || codeTask ? 0 : correctness === 'strong' ? 10 : correctness === 'partial' ? 4 : 0,
     nextActivity: correctness === 'strong' ? 'Das Prinzip neu anwenden' : 'Ein Kriterium gezielt üben',
     nextReason: correctness === 'strong' ? 'Eine neue Situation prüft den Transfer.' : nextGap?.explanation ?? 'Ein kleinerer Schritt hilft beim Weiterdenken.',

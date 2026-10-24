@@ -5,9 +5,9 @@ The desktop learning workspace is implemented in `src/components/learning-sessio
 ## Demo flows
 
 - Continue Lea's session to open the prompting writing task.
-- Choose 5, 15 or 30 minutes before a fresh session. A valid saved session keeps its budget and place. **Aufgabe**, **Kurz erklärt** and **Material** separate practice, a contextual explanation with an example, and its source.
-- Choose **Mit KI** or **Coach hinzunehmen** for stepped, streamed coaching. Assistance remains recorded when switching back to solo.
-- Choose **Zu zweit**, enter the second person's name, and complete the sequence: Lea's answer → screen handoff → second answer → comparison → shared answer. Roles change with the Bloom stage (for example developer/tester at Create). The tester can write test cases without uploading a second artifact. The AI coach remains available; its conversation resets for each turn and is hidden during handoff. Support stays recorded across the round. This is a turn-taking aid on one computer, not an authentication or privacy boundary. A joint success is followed by independent transfer on the same thinking level.
+- Choose 5, 15 or 30 minutes, or enter a whole number from 5 to 180 before a fresh session. A valid saved session keeps its budget and place. **Aufgabe** and **Material** separate practice from its source. The inline **Lernhilfe öffnen** action reveals a contextual explanation and records the attempt as supported; merely reading the required source material does not.
+- The coach starts closed, with an empty body and **Coach hinzunehmen**. Choose **Mit KI** or that action for stepped, streamed coaching. Opening the empty coach alone does not count as help. Asking it a question records AI support, which remains recorded when switching back to solo.
+- Choose **Zu zweit**, enter the second person's name, and complete the sequence: Lea's answer → screen handoff → second answer → comparison → shared answer. Roles change with the Bloom stage (for example developer/tester at Create). The tester can write test cases without uploading a second artifact. The AI coach remains available; its conversation resets and starts closed for each turn. Support stays recorded across the round; the theory explanation closes when passing the screen. This is a turn-taking aid on one computer, not an authentication or privacy boundary. A joint success is followed by independent transfer on the same thinking level.
 - Open **Mit Python etwas Eigenes bauen** from the dashboard for the file-based Creating example. Choose a `.py`, `.txt` or `.zip` file, then explain the test cases.
 
 ## Task formats
@@ -20,8 +20,8 @@ The demo uses regular expressions and exact option checks. This is not a semanti
 
 ## Adaptation and time
 
-- A weak result produces a smaller, targeted task; repeated difficulty or a “too hard” rating offers coaching.
-- Supported and joint results are stored separately. A successful supported attempt is followed by a new solo task on the same thinking level. Reviewing and retrying the same task counts as support.
+- A weak result produces a smaller, targeted task; repeated difficulty or a “too hard” rating offers coaching. No unseen hint is counted or inserted automatically into a closed coach.
+- Supported and joint results are stored separately. A successful supported attempt is followed by a new solo task on the same thinking level. Reviewing and retrying the same task counts as support. Opening theory records a round-wide `theoryViewed` flag without increasing AI hint counts or reducing answer correctness. It does not add independent mastery evidence; a new unaided case does.
 - With at least five comparable independent attempts on the same skill and Bloom stage, the demo uses an 80–90% success band to retain or increase challenge. Before that it makes conservative task-level decisions and shows no numeric probability.
 - The 85% target is an experimental product heuristic, not a universal mastery threshold or a grade.
 - Active time starts after choosing the budget and pauses when the browser tab is hidden. Task fitting includes theory and a short closing reflection; paired estimates include both individual turns and synthesis. A brief session narrows the criterion or starts with a project plan. The learner can add five minutes or finish early. Estimates are guidance rather than a forced countdown.
@@ -31,7 +31,7 @@ The demo uses regular expressions and exact option checks. This is not a semanti
 
 The existing `learningApi` adapter remains the boundary. With `VITE_DEMO_MODE=false`, no scripted review is substituted for a failed request.
 
-`POST /api/questions/answer` accepts the existing answer fields plus the activity snapshot, selected option identifiers and `learningMode`. Without a file it is JSON. With a file it is `multipart/form-data` containing `file` and `submission` (JSON metadata). The backend must use its own trusted task/rubric definitions; client-provided criteria and option correctness are not authoritative.
+`POST /api/questions/answer` accepts the existing answer fields plus the activity snapshot, selected option identifiers, `learningMode`, optional `theoryUsed` and aggregate `supportUsed`. Theory support is distinct from `tutorUsed` and `hintsUsed`, which describe AI usage. `supportUsed` also covers reviewing feedback before retrying, without labelling that as AI usage. Without a file it is JSON. With a file it is `multipart/form-data` containing `file` and `submission` (JSON metadata). The backend must use its own trusted task/rubric definitions; client-provided criteria and option correctness are not authoritative.
 
 `POST /api/tutor/stream` retains AI SDK UI messages and adds a `context` object with the current activity, draft text, feedback, learning mode and optional `turnContext` (current paired role). The stream remains UTF-8 plain text. Attachments and the other person's hidden draft are not sent to the coach. The backend team must implement extraction and isolated code assessment before file submissions can receive a real verdict.
 

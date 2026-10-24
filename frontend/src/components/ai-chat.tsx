@@ -157,18 +157,18 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
 
   if (workspace) return <div>
     <LearningSurface className="learn-coach">
-      <div className="learn-coach-header"><div className="learn-coach-identity"><span className="learn-coach-mark"><MessagesSquare className="size-4" /></span><div><h2>{title}</h2><p><span className="learn-status-dot" />{mode === 'together' ? 'Auch zu zweit für euch da' : active ? 'An deiner Seite' : 'Bei Bedarf dazuholen'}</p></div></div></div>
-      {!active ? <div className="learn-coach-intro"><span className="learn-coach-illustration" aria-hidden="true"><MessagesSquare className="size-8" /></span><h3>Ein Impuls genügt oft.</h3><p>Ich erkläre das Prinzip und stelle Rückfragen. Den nächsten Schritt machst du.</p><Button variant="outline" disabled={disabled || !onActivate} onClick={onActivate}>Coach hinzunehmen <ArrowUpRight className="size-3.5" /></Button></div> : <>
+      <div className="learn-coach-header"><div className="learn-coach-identity"><span className="learn-coach-mark"><MessagesSquare className="size-4" /></span><div><h2>{title}</h2><p><span className="learn-status-dot" />{!active ? 'Bei Bedarf dazuholen' : mode === 'together' ? 'Auch zu zweit für euch da' : 'An deiner Seite'}</p></div></div></div>
+      {!active ? <div className="learn-coach-closed"><Button variant="outline" disabled={disabled || !onActivate} onClick={onActivate}>Coach hinzunehmen <ArrowUpRight className="size-3.5" /></Button></div> : <>
         <div ref={transcriptRef} className="learn-coach-transcript" role="log" aria-label="Gespräch mit dem KI-Coach" aria-live="polite" aria-relevant="additions">
           {messages.map((message) => <div key={message.id} className={`learn-message ${message.role === 'user' ? 'is-user' : 'is-assistant'}`}><p className="learn-message-label">{message.role === 'user' ? 'Du' : 'KI-Coach'}</p>{message.parts.map((part, index) => part.type === 'text' ? <span key={index}>{part.text}</span> : null)}</div>)}
           {busy && <span className="learn-loading" role="status"><LoaderCircle className="size-3 animate-spin motion-reduce:animate-none" /> Ein Gedanke entsteht …</span>}
         </div>
-      </>}
         <div className="learn-coach-prompts">{[review ? 'Feedback erklären' : 'Gib mir einen Denkimpuls', 'Erkläre das Prinzip'].map((prompt) => <Button key={prompt} variant="outline" size="sm" disabled={busy || disabled || !active && !onActivate} onClick={() => send(prompt)}>{prompt}</Button>)}</div>
         <div className="learn-coach-bottom">{(localError || error) && <p className="learn-inline-error" role="alert">Der Coach konnte nicht antworten. Deine Nachricht bleibt im Verlauf. Bitte versuche es erneut.</p>}
           <form className="learn-coach-form" onSubmit={(event) => { event.preventDefault(); send(input) }}><Textarea value={input} onChange={(event) => setInput(event.target.value)} rows={2} aria-label="Den KI-Coach fragen" placeholder="Wo kommst du gerade nicht weiter?" disabled={busy || disabled || !active && !onActivate} />{busy ? <Button type="button" variant="outline" size="icon-lg" onClick={() => void stop()} aria-label="Antwort anhalten"><XIcon /></Button> : <Button variant="primary" type="submit" size="icon-lg" aria-label="Nachricht senden" disabled={disabled || !input.trim() || !active && !onActivate}><ArrowUp className="size-4" /></Button>}</form>
           <small>KI kann sich irren. Prüfe Aussagen am Material.</small>
         </div>
+      </>}
     </LearningSurface>
   </div>
 

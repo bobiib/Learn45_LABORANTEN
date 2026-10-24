@@ -21,6 +21,8 @@ type SavedSession = {
   review: ReviewResult | null; messages: ChatMessage[]; hints: number
   difficulty?: AnswerSubmission['difficulty']
   started?: boolean
+  theoryViewed?: boolean
+  coachOpen?: boolean
 }
 
 const packDraft = (draft: AnswerDraft): SavedDraft => ({ text: draft.text, selected: draft.selected, hadFile: !!(draft.file || draft.fileName), fileName: draft.file?.name ?? draft.fileName })
@@ -44,6 +46,8 @@ export function LearningSession({ topic, question, onBack, onHome, onProgress }:
   const [draft, setDraft] = useState<AnswerDraft>(() => saved ? unpackDraft(saved.draft) : emptyDraft())
   const [mode, setMode] = useState<LearningMode>(saved?.mode ?? (question.mode === 'Partner' ? 'together' : 'solo'))
   const [supported, setSupported] = useState(saved?.supported ?? false)
+  const [theoryViewed, setTheoryViewed] = useState(saved?.theoryViewed ?? false)
+  const [coachOpen, setCoachOpen] = useState(saved?.coachOpen ?? saved?.messages.some((message) => message.role === 'user') ?? false)
   const [attempts, setAttempts] = useState<PracticeAttempt[]>(saved?.attempts ?? [])
   const [review, setReview] = useState<ReviewResult | null>(saved?.review ?? null)
   const [messages, setMessages] = useState<ChatMessage[]>(saved?.messages ?? intro(activity))
@@ -89,23 +93,25 @@ export function LearningSession({ topic, question, onBack, onHome, onProgress }:
   }, [phase, started])
 
   useEffect(() => {
-    const snapshot: SavedSession = { version: 2, questionId: question.id, activity, draft: packDraft(draft), phase, attempts, budget, elapsed, mode, supported, partner, pairPhase, first: first ? packDraft(first) : null, second: second ? packDraft(second) : null, review, messages, hints, difficulty, started }
+    const snapshot: SavedSession = { version: 2, questionId: question.id, activity, draft: packDraft(draft), phase, attempts, budget, elapsed, mode, supported, partner, pairPhase, first: first ? packDraft(first) : null, second: second ? packDraft(second) : null, review, messages, hints, difficulty, started, theoryViewed, coachOpen }
     snapshotRef.current = snapshot
     const timer = window.setTimeout(() => {
       try { window.localStorage.setItem(storageKey, JSON.stringify(snapshot)); setSaveFailed(false) } catch { setSaveFailed(true) }
     }, 350)
     return () => window.clearTimeout(timer)
-  }, [question.id, activity, draft, phase, attempts, budget, elapsed, mode, supported, partner, pairPhase, first, second, review, messages, hints, difficulty, storageKey, started])
+  }, [question.id, activity, draft, phase, attempts, budget, elapsed, mode, supported, partner, pairPhase, first, second, review, messages, hints, difficulty, storageKey, started, theoryViewed, coachOpen])
 
   useEffect(() => () => abortRef.current?.abort(), [])
   useEffect(() => () => { try { if (snapshotRef.current) window.localStorage.setItem(storageKey, JSON.stringify(snapshotRef.current)) } catch { /* Keep the live session usable if browser storage is full. */ } }, [storageKey])
 
   const onMessages = useCallback((value: ChatMessage[]) => setMessages(value), [])
   const onSupport = useCallback(() => { setSupported(true); setHints((value) => value + 1) }, [])
+  const onTheory = useCallback(() => { setTheoryViewed(true); setSupported(true) }, [])
 
   function changeMode(value: LearningMode) {
     if (busy || mode === 'together' && pairPhase !== 'first') return
     setMode(value)
+    setCoachOpen(value === 'coach')
     if (!draft.text.trim() && !draft.selected.length && !draft.file) {
       const fitted = fitActivityToBudget(activity, remaining, value)
       if (fitted !== activity) { setActivity(fitted); setMessages(intro(fitted)) }
@@ -115,12 +121,14 @@ export function LearningSession({ topic, question, onBack, onHome, onProgress }:
   }
 
   function activateCoach() {
+    setCoachOpen(true)
     if (mode !== 'together') setMode('coach')
     window.setTimeout(() => coachRef.current?.querySelector<HTMLTextAreaElement>('textarea')?.focus({ preventScroll: true }), 0)
   }
 
   function changePairPhase(value: PairPhase) {
     setMessages(intro(activity))
+    setCoachOpen(false)
     setPairPhase(value)
   }
 
@@ -128,6 +136,8 @@ export function LearningSession({ topic, question, onBack, onHome, onProgress }:
     const fitted = fitActivityToBudget(activityForQuestion(question), budget, mode)
     setActivity(fitted)
     setMessages(intro(fitted))
+    setTheoryViewed(false)
+    setCoachOpen(false)
     setStarted(true)
   }
 
@@ -136,6 +146,7 @@ export function LearningSession({ topic, question, onBack, onHome, onProgress }:
     if (first) setDraft(first)
     if (pairPhase === 'compare') setSupported(true)
     setMode('solo')
+    setCoachOpen(false)
     setPairPhase('first')
     setFirst(null)
     setSecond(null)
@@ -155,7 +166,7 @@ export function LearningSession({ topic, question, onBack, onHome, onProgress }:
     const controller = new AbortController()
     abortRef.current = controller
     try {
-      const result = await learningApi.submitAnswer({ questionId: question.id, activity, answer: draft.text, selectedOptions: draft.selected, attachment: draft.file, attachmentText: draft.fileText, hintsUsed: hints, tutorUsed: supported, learningMode: mode, difficulty: null }, controller.signal)
+      const result = await learningApi.submitAnswer({ questionId: question.id, activity, answer: draft.text, selectedOptions: draft.selected, attachment: draft.file, attachmentText: draft.fileText, hintsUsed: hints, tutorUsed: hints > 0, theoryUsed: theoryViewed, supportUsed: supported, learningMode: mode, difficulty: null }, controller.signal)
       if (controller.signal.aborted) return
       setReview(result)
       if (!result.assessmentPending) {
@@ -195,10 +206,10 @@ export function LearningSession({ topic, question, onBack, onHome, onProgress }:
     setRatingError('')
     setMode(needsCoach && topic.context.tutorEnabled ? 'coach' : 'solo')
     setSupported(false)
+    setTheoryViewed(false)
+    setCoachOpen(false)
     setHints(0)
-    setMessages(needsCoach ? [{ id: `intro-${next.id}`, role: 'assistant', text: 'Lass uns einen Gedanken klären, bevor du selbst entscheidest. ' + next.hints[0] }] : intro(next))
-    // An automatically offered, displayed hint is support, even before a chat message is sent.
-    if (needsCoach && topic.context.tutorEnabled) { setSupported(true); setHints(1) }
+    setMessages(intro(next))
     setPairPhase('first')
     setFirst(null)
     setSecond(null)
@@ -219,6 +230,7 @@ export function LearningSession({ topic, question, onBack, onHome, onProgress }:
   }
 
   function restart() {
+    setTheoryViewed(false); setCoachOpen(false)
     setStarted(false); setBudget(15); setActivity(activityForQuestion(question)); setDraft(emptyDraft()); setMode(question.mode === 'Partner' ? 'together' : 'solo'); setSupported(false); setAttempts([]); setReview(null); setMessages(intro(activityForQuestion(question))); setHints(0); setElapsed(0); setDifficulty(null); setRatingError(''); setPairPhase('first'); setFirst(null); setSecond(null); setFileLost(false); setPhase('question')
   }
 
@@ -237,10 +249,10 @@ export function LearningSession({ topic, question, onBack, onHome, onProgress }:
       </motion.div> : <motion.div key="workspace" className="learn-grid" initial={false} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
         <div className="learn-main"><AnimatePresence mode="wait" initial={false}>
           <motion.div key={`${activity.id}-${phase}`} initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: reduced ? 0 : -4 }} transition={{ duration: .2 }}>
-            {phase === 'question' ? <QuestionWorkspace activity={activity} mode={mode} onMode={changeMode} draft={draft} onDraft={(value) => { setDraft(value); if (value.file) setFileLost(false) }} busy={busy} error={error} onSubmit={() => void submit()} attemptNumber={attempts.length + 1} partner={partner} onPartner={setPartner} pairPhase={pairPhase} onPairPhase={changePairPhase} onLeavePair={leavePair} firstDraft={first} secondDraft={second} hintsUsed={hints} restoredFileLost={fileLost} /> : review && <ReviewWorkspace activity={activity} draft={draft} review={review} mode={mode} supported={supported} attempts={attempts} difficulty={difficulty} ratingSaving={ratingSaving} error={ratingError} onDifficulty={(value) => void rate(value)} next={next} remainingMinutes={remaining} onContinue={continueLearning} onRetry={retry} onCoach={activateCoach} onFinish={finish} />}
+            {phase === 'question' ? <QuestionWorkspace activity={activity} mode={mode} onMode={changeMode} draft={draft} onDraft={(value) => { setDraft(value); if (value.file) setFileLost(false) }} busy={busy} error={error} onSubmit={() => void submit()} attemptNumber={attempts.length + 1} partner={partner} onPartner={setPartner} pairPhase={pairPhase} onPairPhase={changePairPhase} onLeavePair={leavePair} firstDraft={first} secondDraft={second} hintsUsed={hints} theoryViewed={theoryViewed} onTheory={onTheory} restoredFileLost={fileLost} /> : review && <ReviewWorkspace activity={activity} draft={draft} review={review} mode={mode} supported={supported} attempts={attempts} difficulty={difficulty} ratingSaving={ratingSaving} error={ratingError} onDifficulty={(value) => void rate(value)} next={next} remainingMinutes={remaining} onContinue={continueLearning} onRetry={retry} onCoach={activateCoach} onFinish={finish} />}
           </motion.div>
         </AnimatePresence>{saveFailed && <p className="learn-saving-note" role="status">Der Zwischenstand konnte nicht im Browser gespeichert werden. Deine aktuelle Arbeit bleibt auf dieser Seite erhalten.</p>}</div>
-        <aside ref={coachRef} className="learn-sidebar">{mode === 'together' && pairPhase === 'handoff' ? <LearningSurface className="learn-coach-pause"><UsersRound className="size-6" /><h2>Ein Moment für den Wechsel.</h2><p>Der Coach startet für die nächste Person mit einem neuen Gespräch.</p></LearningSurface> : <AIChatPanel key={`${activity.id}-${phase}-${mode === 'together' ? pairPhase : 'single'}`} kind="tutor" workspace chatId={`practice-${activity.id}-${phase}-${mode === 'together' ? pairPhase : 'single'}`} questionId={question.id} topicId={topic.id} initialMessages={messages} title="Lerncoach" detail="Gemeinsam weiterdenken" activity={activity} learnerAnswer={draft.text} turnContext={turnContext} review={phase === 'review' ? review : null} mode={mode} active={(mode === 'coach' || mode === 'together') && topic.context.tutorEnabled} onActivate={topic.context.tutorEnabled ? activateCoach : undefined} onSupport={phase === 'question' ? onSupport : undefined} onMessagesChange={onMessages} disabled={busy} />}{!topic.context.tutorEnabled && <p className="learn-coach-caption">KI-Coach im Lernkontext deaktiviert.</p>}{isDemoMode && <p className="learn-coach-caption">Demo · vorbereitete Lernimpulse</p>}</aside>
+        <aside ref={coachRef} className="learn-sidebar">{mode === 'together' && pairPhase === 'handoff' ? <LearningSurface className="learn-coach-pause"><UsersRound className="size-6" /><h2>Ein Moment für den Wechsel.</h2><p>Der Coach startet für die nächste Person mit einem neuen Gespräch.</p></LearningSurface> : <AIChatPanel key={`${activity.id}-${phase}-${mode === 'together' ? pairPhase : 'single'}`} kind="tutor" workspace chatId={`practice-${activity.id}-${phase}-${mode === 'together' ? pairPhase : 'single'}`} questionId={question.id} topicId={topic.id} initialMessages={messages} title="Lerncoach" detail="Gemeinsam weiterdenken" activity={activity} learnerAnswer={draft.text} turnContext={turnContext} review={phase === 'review' ? review : null} mode={mode} active={coachOpen && topic.context.tutorEnabled} onActivate={topic.context.tutorEnabled ? activateCoach : undefined} onSupport={phase === 'question' ? onSupport : undefined} onMessagesChange={onMessages} disabled={busy} />}{!topic.context.tutorEnabled && <p className="learn-coach-caption">KI-Coach im Lernkontext deaktiviert.</p>}{isDemoMode && <p className="learn-coach-caption">Demo · vorbereitete Lernimpulse</p>}</aside>
       </motion.div>}
     </AnimatePresence>
   </div></MotionConfig>

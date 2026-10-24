@@ -1,11 +1,13 @@
-import { useId, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { Popover } from '@base-ui/react/popover'
 import { Dialog } from '@base-ui/react/dialog'
-import { ArrowLeft, ArrowUpRight, Check, ChevronRight, Clock3, Info, UserRound, UsersRound, MessagesSquare, X } from 'lucide-react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { ArrowLeft, ArrowUpRight, BookOpen, Check, ChevronRight, Clock3, Info, UserRound, UsersRound, MessagesSquare, X } from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Button } from './button'
+import { Input } from './input'
 import type { BloomStage, LearningMode } from '@/lib/types'
 import { bloomLabels } from '@/lib/learning-engine'
+import type { TheoryContent } from '@/lib/learning-content'
 import './learning.css'
 
 export function LearningSurface({ children, className = '' }: { children: ReactNode; className?: string }) {
@@ -31,23 +33,55 @@ export function LearningPopover({ label, title, children, icon = true, iconOnly 
 
 export function LearningStart({ open, minutes, onMinutes, onStart, onBack }: { open: boolean; minutes: number; onMinutes: (value: number) => void; onStart: () => void; onBack: () => void }) {
   return <Dialog.Root open={open}><Dialog.Portal><Dialog.Backdrop className="learn-start-backdrop" /><Dialog.Popup className="learn-start">
-    <span className="learn-start-icon"><Clock3 className="size-6" /></span>
-    <Dialog.Title>Wie viel Zeit hast du?</Dialog.Title>
-    <Dialog.Description>Eine kleine Einheit, die in deinen Tag passt. Theorie, Übung und Rückblick sind dabei.</Dialog.Description>
-    <div className="learn-duration" role="group" aria-label="Zeit für diese Einheit">{[5, 15, 30].map((value) => <Button key={value} variant={minutes === value ? 'secondary' : 'outline'} aria-pressed={minutes === value} onClick={() => onMinutes(value)}>{value} Min.</Button>)}</div>
-    <div className="learn-start-actions"><Button variant="ghost" onClick={onBack}>Zurück</Button><Button variant="primary" onClick={onStart}>Loslegen <ArrowUpRight className="size-4" /></Button></div>
+    <LearningStartContents minutes={minutes} onMinutes={onMinutes} onStart={onStart} onBack={onBack} />
   </Dialog.Popup></Dialog.Portal></Dialog.Root>
 }
 
-export type LearningTab = 'Aufgabe' | 'Kurz erklärt' | 'Material'
+function LearningStartContents({ minutes, onMinutes, onStart, onBack }: { minutes: number; onMinutes: (value: number) => void; onStart: () => void; onBack: () => void }) {
+  const inputId = useId()
+  const [custom, setCustom] = useState(false)
+  const [customMinutes, setCustomMinutes] = useState('')
+  const customValid = /^\d+$/.test(customMinutes) && Number(customMinutes) >= 5 && Number(customMinutes) <= 180
+  const invalid = custom && !customValid
+  return <>
+    <span className="learn-start-icon"><Clock3 className="size-6" /></span>
+    <Dialog.Title>Wie viel Zeit hast du?</Dialog.Title>
+    <Dialog.Description>Eine kleine Einheit, die in deinen Tag passt. Theorie, Übung und Rückblick sind dabei.</Dialog.Description>
+    <div className="learn-duration" role="group" aria-label="Zeit für diese Einheit">{[5, 15, 30].map((value) => <Button key={value} variant={!custom && minutes === value ? 'secondary' : 'outline'} aria-pressed={!custom && minutes === value} onClick={() => { setCustom(false); setCustomMinutes(''); onMinutes(value) }}>{value} Min.</Button>)}</div>
+    <div className="learn-custom-duration">
+      <label htmlFor={inputId}>Eigene Dauer</label>
+      <div className="learn-custom-duration-input"><Input id={inputId} type="number" inputMode="numeric" min={5} max={180} step={1} value={customMinutes} placeholder="Zum Beispiel 25" aria-invalid={invalid || undefined} aria-describedby={`${inputId}-hint`} onChange={(event) => {
+        const value = event.target.value
+        setCustom(true); setCustomMinutes(value)
+        if (/^\d+$/.test(value) && Number(value) >= 5 && Number(value) <= 180) onMinutes(Number(value))
+      }} /><span>Min.</span></div>
+      <p id={`${inputId}-hint`} className={invalid ? 'learn-custom-duration-error' : ''} aria-live="polite">{invalid ? 'Bitte gib 5 bis 180 Minuten als ganze Zahl ein.' : '5 bis 180 Minuten'}</p>
+    </div>
+    <div className="learn-start-actions"><Button variant="ghost" onClick={onBack}>Zurück</Button><Button variant="primary" disabled={invalid} onClick={onStart}>Loslegen <ArrowUpRight className="size-4" /></Button></div>
+  </>
+}
+
+export type LearningTab = 'Aufgabe' | 'Material'
 export function LearningTabs({ value, onChange, children }: { value: LearningTab; onChange: (value: LearningTab) => void; children: ReactNode }) {
   const id = useId()
-  const tabs: LearningTab[] = ['Aufgabe', 'Kurz erklärt', 'Material']
+  const tabs: LearningTab[] = ['Aufgabe', 'Material']
   return <><div className="learn-tabs" role="tablist" aria-label="Aufgabe und Lernmaterial">{tabs.map((tab, index) => <Button key={tab} id={`${id}-${index}`} role="tab" aria-controls={`${id}-panel`} aria-selected={value === tab} tabIndex={value === tab ? 0 : -1} variant="ghost" onClick={() => onChange(tab)} onKeyDown={(event) => {
     const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
     if (next < 0) return
     event.preventDefault(); onChange(tabs[next]); document.getElementById(`${id}-${next}`)?.focus()
   }}>{tab}</Button>)}</div><div className="learn-tab-panel" id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${tabs.indexOf(value)}`}>{children}</div></>
+}
+
+export function LearningHelp({ content, viewed, onOpen, disabled = false }: { content: TheoryContent; viewed: boolean; onOpen: () => void; disabled?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  const reduced = useReducedMotion()
+  return <div className="learn-help">
+    <div className="learn-help-toggle"><Button variant="ghost" size="sm" disabled={disabled} aria-expanded={open} aria-controls={id} aria-describedby={`${id}-notice`} onClick={() => { if (!open) onOpen(); setOpen((value) => !value) }}><BookOpen className="size-3.5" />{open ? 'Lernhilfe schliessen' : 'Lernhilfe öffnen'}</Button><span id={`${id}-notice`}>{viewed ? 'Als Unterstützung vermerkt' : 'Zählt als Unterstützung'}</span></div>
+    <AnimatePresence initial={false}>{open && <motion.div id={id} key="help" role="region" aria-label="Lernhilfe" className="learn-theory learn-help-content" initial={reduced ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: reduced ? 0 : .2 }}>
+      <div className="learn-theory-heading"><BookOpen className="size-4" /><span>{content.minutes} Min. Erklärung</span></div><h2>{content.title}</h2><p>{content.principle}</p>{content.formula && <p className="learn-formula">{content.formula}</p>}<div className="learn-example"><div><span>Ausgangslage</span><p>{content.example.before}</p></div><div><span>Weitergedacht</span><p>{content.example.after}</p></div></div><p className="learn-theory-note">{content.example.explanation}</p><div className="learn-takeaway">{content.takeaway}</div><p className="learn-help-note">Dein nächster eigener Versuch zeigt, was du ohne Hilfe anwenden kannst.</p>
+    </motion.div>}</AnimatePresence>
+  </div>
 }
 
 export function LearningNavigation({ topic, onBack, minutes, budget, onBudget, phase, onFinish }: { topic: string; onBack: () => void; minutes: number; budget: number; onBudget: (minutes: number) => void; phase: 'question' | 'review' | 'summary'; onFinish: () => void }) {
