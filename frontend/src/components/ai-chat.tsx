@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { TextStreamChatTransport, type UIMessage } from 'ai'
 import { useChat } from '@ai-sdk/react'
-import { ArrowUp, ArrowUpRight, BookOpen, Check, CircleHelp, LoaderCircle, MessagesSquare, Sparkles, UsersRound } from 'lucide-react'
+import { ArrowUp, ArrowUpRight, LoaderCircle, MessagesSquare, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,7 @@ import { isDemoMode, learningApi, getApiUrl } from '@/lib/api'
 import type { ChatMessage, LearningActivity, LearningMode, ReviewResult, Topic } from '@/lib/types'
 import { coachReply } from '@/lib/learning-engine'
 import { LearningSurface } from '@/components/ui/learning'
+import { theoryFor } from '@/lib/learning-content'
 
 type ChatKind = 'tutor' | 'scope'
 
@@ -34,6 +35,7 @@ type AIChatProps = {
   onActivate?: () => void
   onSupport?: () => void
   disabled?: boolean
+  turnContext?: string
 }
 
 function toUiMessages(messages: ChatMessage[]): UIMessage[] {
@@ -73,14 +75,14 @@ function streamResponse(text: string, signal?: AbortSignal) {
   return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
 }
 
-export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages, title, detail, compact = false, onMessagesChange, onTopicUpdated, workspace = false, active = true, mode = 'coach', activity, learnerAnswer, review, onActivate, onSupport, disabled = false }: AIChatProps) {
+export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages, title, detail, compact = false, onMessagesChange, onTopicUpdated, workspace = false, active = true, mode = 'coach', activity, learnerAnswer, review, onActivate, onSupport, disabled = false, turnContext }: AIChatProps) {
   const [input, setInput] = useState('')
   const [localError, setLocalError] = useState('')
   const [initial] = useState(() => toUiMessages(initialMessages))
   const transcriptRef = useRef<HTMLDivElement>(null)
   const transport = useMemo(() => new TextStreamChatTransport({
     api: kind === 'scope' ? getApiUrl(`/topics/${encodeURIComponent(topicId ?? '')}/scope/stream`) : getApiUrl('/tutor/stream'),
-    body: { topicId, questionId, context: workspace ? { activity, learnerAnswer, review, learningMode: mode } : undefined },
+    body: { topicId, questionId, context: workspace ? { activity, learnerAnswer, review, learningMode: mode, turnContext } : undefined },
     fetch: async (input, init) => {
       if (!isDemoMode) return window.fetch(input, init)
       let body: { messages?: UIMessage[] } = {}
@@ -102,6 +104,10 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
         if (questionId) {
           if (activity) {
             const level = Math.max(0, messages.filter((message) => message.role === 'user').length - 1)
+            if (!review && /erkläre das prinzip/i.test(text)) {
+              const theory = theoryFor(activity)
+              return streamResponse(`${theory.principle} ${theory.takeaway}`, init?.signal ?? undefined)
+            }
             return streamResponse(coachReply(activity, text, level, review), init?.signal ?? undefined)
           }
           const response = await learningApi.sendTutorMessage(questionId, text)
@@ -113,7 +119,7 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
         return new Response(message, { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
       }
     },
-  }), [kind, onTopicUpdated, questionId, topicId, workspace, activity, learnerAnswer, review, mode])
+  }), [kind, onTopicUpdated, questionId, topicId, workspace, activity, learnerAnswer, review, mode, turnContext])
 
   const { messages, sendMessage, status, error, stop } = useChat({
     id: chatId,
@@ -141,7 +147,8 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
   }, [messages, busy])
 
   function send(text: string) {
-    if (!text.trim() || busy || disabled || !active) return
+    if (!text.trim() || busy || disabled || !active && !onActivate) return
+    if (!active) onActivate?.()
     setLocalError('')
     setInput('')
     onSupport?.()
@@ -150,27 +157,19 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
 
   if (workspace) return <div>
     <LearningSurface className="learn-coach">
-      <div className="learn-coach-header"><div className="learn-coach-identity"><span className="learn-coach-mark">{mode === 'together' ? <UsersRound className="size-4" /> : <MessagesSquare className="size-4" />}</span><div><h2>{mode === 'together' ? 'Zwei Perspektiven' : title}</h2><p><span className="learn-status-dot" />{mode === 'together' ? 'Ein Computer · zwei Köpfe' : active ? 'An deiner Seite' : 'Bereit, wenn du mich brauchst'}</p></div></div><span className="learn-coach-label">{mode === 'together' ? 'TANDEM' : 'COACH'}</span></div>
-      {!active ? <>
-        <div className="learn-coach-intro"><h3>{mode === 'together' ? <>Erst selbst denken.<br />Dann zusammen weiter.</> : <>Ein kleiner Impuls.<br />Dein eigener Gedanke.</>}</h3><p>{mode === 'together' ? 'Ihr betrachtet dieselbe Aufgabe zunächst getrennt. Im Austausch wird sichtbar, was hinter euren Antworten steckt.' : 'Versuch es in deinem Tempo. Wenn du feststeckst, denken wir einen Schritt gemeinsam weiter.'}</p>
-          <ul className="learn-coach-points">{mode === 'together' ? <>
-            <li><Check className="size-3.5" /><span>Lea formuliert eine eigene Idee.</span></li><li><UsersRound className="size-3.5" /><span>Bildschirm weitergeben. Die zweite Person antwortet unabhängig.</span></li><li><MessagesSquare className="size-3.5" /><span>Unterschiede erklären und ein gemeinsames Ergebnis entwickeln.</span></li>
-          </> : <><li><CircleHelp className="size-3.5" /><span>Eine Rückfrage, die dich weiterbringt.</span></li><li><BookOpen className="size-3.5" /><span>Ein Prinzip verständlich erklärt.</span></li><li><Check className="size-3.5" /><span>Danach wieder selbst ausprobieren.</span></li></>}</ul>
-        </div>
-        <div className="learn-coach-activate">{mode !== 'together' && <Button variant="outline" disabled={disabled || !onActivate} onClick={onActivate}>Coach hinzunehmen <ArrowUpRight className="size-3.5" /></Button>}<p className="learn-footnote">{mode === 'together' ? 'Für die gemeinsame Runde braucht ihr keine Konten und keine zweite Verbindung.' : 'Unterstützung ist Teil des Lernens. Dein nächster eigener Versuch zeigt, was hängen bleibt.'}</p></div>
-      </> : <>
+      <div className="learn-coach-header"><div className="learn-coach-identity"><span className="learn-coach-mark"><MessagesSquare className="size-4" /></span><div><h2>{title}</h2><p><span className="learn-status-dot" />{mode === 'together' ? 'Auch zu zweit für euch da' : active ? 'An deiner Seite' : 'Bei Bedarf dazuholen'}</p></div></div></div>
+      {!active ? <div className="learn-coach-intro"><span className="learn-coach-illustration" aria-hidden="true"><MessagesSquare className="size-8" /></span><h3>Ein Impuls genügt oft.</h3><p>Ich erkläre das Prinzip und stelle Rückfragen. Den nächsten Schritt machst du.</p><Button variant="outline" disabled={disabled || !onActivate} onClick={onActivate}>Coach hinzunehmen <ArrowUpRight className="size-3.5" /></Button></div> : <>
         <div ref={transcriptRef} className="learn-coach-transcript" role="log" aria-label="Gespräch mit dem KI-Coach" aria-live="polite" aria-relevant="additions">
           {messages.map((message) => <div key={message.id} className={`learn-message ${message.role === 'user' ? 'is-user' : 'is-assistant'}`}><p className="learn-message-label">{message.role === 'user' ? 'Du' : 'KI-Coach'}</p>{message.parts.map((part, index) => part.type === 'text' ? <span key={index}>{part.text}</span> : null)}</div>)}
           {busy && <span className="learn-loading" role="status"><LoaderCircle className="size-3 animate-spin motion-reduce:animate-none" /> Ein Gedanke entsteht …</span>}
         </div>
-        <div className="learn-coach-prompts">{[review ? 'Feedback erklären' : 'Gib mir einen Denkimpuls', 'Erkläre das Prinzip'].map((prompt) => <Button key={prompt} variant="outline" size="sm" disabled={busy || disabled} onClick={() => send(prompt)}>{prompt}</Button>)}</div>
-        <div className="learn-coach-bottom">{(localError || error) && <p className="learn-inline-error" role="alert">Der Coach konnte nicht antworten. Deine Nachricht bleibt im Verlauf. Bitte versuche es erneut.</p>}
-          <form className="learn-coach-form" onSubmit={(event) => { event.preventDefault(); send(input) }}><Textarea value={input} onChange={(event) => setInput(event.target.value)} rows={2} aria-label="Den KI-Coach fragen" placeholder="Was geht dir durch den Kopf?" disabled={busy || disabled} />{busy ? <Button type="button" variant="outline" size="icon-lg" onClick={() => void stop()} aria-label="Antwort anhalten"><XIcon /></Button> : <Button variant="primary" type="submit" size="icon-lg" aria-label="Nachricht senden" disabled={disabled || !input.trim()}><ArrowUp className="size-4" /></Button>}</form>
-          <small>Deine Überlegungen zählen. Der Coach gibt Impulse und erklärt Zusammenhänge.</small>
-        </div>
       </>}
+        <div className="learn-coach-prompts">{[review ? 'Feedback erklären' : 'Gib mir einen Denkimpuls', 'Erkläre das Prinzip'].map((prompt) => <Button key={prompt} variant="outline" size="sm" disabled={busy || disabled || !active && !onActivate} onClick={() => send(prompt)}>{prompt}</Button>)}</div>
+        <div className="learn-coach-bottom">{(localError || error) && <p className="learn-inline-error" role="alert">Der Coach konnte nicht antworten. Deine Nachricht bleibt im Verlauf. Bitte versuche es erneut.</p>}
+          <form className="learn-coach-form" onSubmit={(event) => { event.preventDefault(); send(input) }}><Textarea value={input} onChange={(event) => setInput(event.target.value)} rows={2} aria-label="Den KI-Coach fragen" placeholder="Wo kommst du gerade nicht weiter?" disabled={busy || disabled || !active && !onActivate} />{busy ? <Button type="button" variant="outline" size="icon-lg" onClick={() => void stop()} aria-label="Antwort anhalten"><XIcon /></Button> : <Button variant="primary" type="submit" size="icon-lg" aria-label="Nachricht senden" disabled={disabled || !input.trim() || !active && !onActivate}><ArrowUp className="size-4" /></Button>}</form>
+          <small>KI kann sich irren. Prüfe Aussagen am Material.</small>
+        </div>
     </LearningSurface>
-    <p className="learn-coach-caption"><span>{mode === 'together' ? 'Erklären vertieft das Verständnis.' : 'Passend gefordert.'}</span> {mode === 'together' ? 'Nach dem Austausch folgt ein eigener Versuch an einem neuen Beispiel.' : 'Die nächste Aufgabe passt sich deinen Versuchen und deinem Zeitrahmen an.'}</p>
   </div>
 
   return <Card className={`panel min-w-0 ${compact ? 'p-4' : ''}`}>

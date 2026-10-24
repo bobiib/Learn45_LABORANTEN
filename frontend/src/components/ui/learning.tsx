@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { Popover } from '@base-ui/react/popover'
+import { Dialog } from '@base-ui/react/dialog'
 import { ArrowLeft, ArrowUpRight, Check, ChevronRight, Clock3, Info, UserRound, UsersRound, MessagesSquare, X } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Button } from './button'
@@ -16,10 +17,10 @@ export function LearningReveal({ children, className = '', delay = 0 }: { childr
   return <motion.div className={className} initial={reduced ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .32, delay: reduced ? 0 : delay, ease: [.22, 1, .36, 1] }}>{children}</motion.div>
 }
 
-export function LearningPopover({ label, title, children, icon = true }: { label: string; title: string; children: ReactNode; icon?: boolean }) {
+export function LearningPopover({ label, title, children, icon = true, iconOnly = false }: { label: string; title: string; children: ReactNode; icon?: boolean; iconOnly?: boolean }) {
   return <Popover.Root>
-    <Popover.Trigger render={<Button variant="ghost" size="sm" className="learn-disclosure" />}>
-      {icon && <Info className="size-3.5" aria-hidden="true" />}{label}
+    <Popover.Trigger render={<Button variant="ghost" size={iconOnly ? 'icon-sm' : 'sm'} className="learn-disclosure" aria-label={iconOnly ? label : undefined} title={iconOnly ? label : undefined} />}>
+      {icon && <Info className="size-3.5" aria-hidden="true" />}{!iconOnly && label}
     </Popover.Trigger>
     <Popover.Portal><Popover.Positioner sideOffset={10} align="start" className="z-50"><Popover.Popup className="learn-popover">
       <div className="learn-popover-heading"><Popover.Title>{title}</Popover.Title><Popover.Close render={<Button variant="ghost" size="icon-sm" aria-label="Schliessen" />}><X className="size-4" /></Popover.Close></div>
@@ -28,12 +29,33 @@ export function LearningPopover({ label, title, children, icon = true }: { label
   </Popover.Root>
 }
 
+export function LearningStart({ open, minutes, onMinutes, onStart, onBack }: { open: boolean; minutes: number; onMinutes: (value: number) => void; onStart: () => void; onBack: () => void }) {
+  return <Dialog.Root open={open}><Dialog.Portal><Dialog.Backdrop className="learn-start-backdrop" /><Dialog.Popup className="learn-start">
+    <span className="learn-start-icon"><Clock3 className="size-6" /></span>
+    <Dialog.Title>Wie viel Zeit hast du?</Dialog.Title>
+    <Dialog.Description>Eine kleine Einheit, die in deinen Tag passt. Theorie, Übung und Rückblick sind dabei.</Dialog.Description>
+    <div className="learn-duration" role="group" aria-label="Zeit für diese Einheit">{[5, 15, 30].map((value) => <Button key={value} variant={minutes === value ? 'secondary' : 'outline'} aria-pressed={minutes === value} onClick={() => onMinutes(value)}>{value} Min.</Button>)}</div>
+    <div className="learn-start-actions"><Button variant="ghost" onClick={onBack}>Zurück</Button><Button variant="primary" onClick={onStart}>Loslegen <ArrowUpRight className="size-4" /></Button></div>
+  </Dialog.Popup></Dialog.Portal></Dialog.Root>
+}
+
+export type LearningTab = 'Aufgabe' | 'Kurz erklärt' | 'Material'
+export function LearningTabs({ value, onChange, children }: { value: LearningTab; onChange: (value: LearningTab) => void; children: ReactNode }) {
+  const id = useId()
+  const tabs: LearningTab[] = ['Aufgabe', 'Kurz erklärt', 'Material']
+  return <><div className="learn-tabs" role="tablist" aria-label="Aufgabe und Lernmaterial">{tabs.map((tab, index) => <Button key={tab} id={`${id}-${index}`} role="tab" aria-controls={`${id}-panel`} aria-selected={value === tab} tabIndex={value === tab ? 0 : -1} variant="ghost" onClick={() => onChange(tab)} onKeyDown={(event) => {
+    const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1
+    if (next < 0) return
+    event.preventDefault(); onChange(tabs[next]); document.getElementById(`${id}-${next}`)?.focus()
+  }}>{tab}</Button>)}</div><div className="learn-tab-panel" id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${tabs.indexOf(value)}`}>{children}</div></>
+}
+
 export function LearningNavigation({ topic, onBack, minutes, budget, onBudget, phase, onFinish }: { topic: string; onBack: () => void; minutes: number; budget: number; onBudget: (minutes: number) => void; phase: 'question' | 'review' | 'summary'; onFinish: () => void }) {
   return <div className="learn-navigation">
     <div className="learn-breadcrumb"><Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="size-4" /> Lernpfad</Button><ChevronRight className="size-3 text-muted-foreground" /><span>{topic}</span></div>
     <div className="learn-navigation-actions">
       <LearningPopover label={`Noch ca. ${minutes} Min.`} title="Dein Zeitrahmen" icon={false}>
-        <p>Heute hast du {budget} Minuten eingeplant. Zwei Minuten bleiben für einen guten Abschluss reserviert.</p>
+        <p>Heute hast du {budget} Minuten eingeplant. Theorie und ein kurzer Abschluss sind im Zeitplan berücksichtigt.</p>
         <Button variant="outline" size="sm" onClick={() => onBudget(5)}><Clock3 className="size-3.5" /> 5 Minuten ergänzen</Button>
       </LearningPopover>
       {phase !== 'summary' && <Button variant="ghost" size="sm" onClick={onFinish}>Für heute abschliessen <ArrowUpRight className="size-3.5" /></Button>}

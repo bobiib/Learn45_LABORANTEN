@@ -1,4 +1,5 @@
-import type { AnswerSubmission, BloomStage, LearningActivity, LearningQuestion, PracticeAttempt, ReviewResult } from './types'
+import { activityTime } from './learning-content.ts'
+import type { AnswerSubmission, BloomStage, LearningActivity, LearningMode, LearningQuestion, PracticeAttempt, ReviewResult } from './types'
 
 export const bloomLabels: Record<BloomStage, string> = {
   Remember: 'Erinnern', Understand: 'Verstehen', Apply: 'Anwenden',
@@ -112,6 +113,22 @@ export function activityForQuestion(question: LearningQuestion): LearningActivit
     rationale: 'Diese Aufgabe vertieft dein aktuelles Lernziel.',
     scenario: { title: 'Dein Lernmaterial', text: 'Beziehe dich bei deiner Antwort auf das Material in deinem Themenraum.', source: 'Eigene Unterlagen' },
     criteria: [], hints: ['Was soll deine Antwort zeigen?', 'Teile die Aufgabe in einen ersten kleinen Schritt.', 'Welche Stelle in deinem Lernmaterial hilft beim ersten Schritt?'], accept: '.txt,.md,.pdf,.docx,.py,.zip', fileLabel: 'Text, Dokument oder Code · bis 5 MB',
+  }
+}
+
+/** Include actual theory, both partners' attempts, and closure before reducing scope. */
+export function fitActivityToBudget(activity: LearningActivity, budget: number, mode: LearningMode = 'solo'): LearningActivity {
+  if (activityTime(activity, mode) <= budget) return activity
+  const minutes = mode === 'together' ? 1 : 2
+  if (activity.skillId === 'prompt-criteria' && activity.format === 'write') return {
+    ...activity, minutes, prompt: 'Überarbeite nur die Vorgabe «kurz»: Lege einen konkreten Umfang für das Projektupdate fest.',
+    criteria: activity.criteria.filter((criterion) => criterion.id === 'format'),
+    rationale: 'In dieser kurzen Einheit konzentrierst du dich auf ein überprüfbares Kriterium.',
+  }
+  return {
+    ...activity, id: activity.id.startsWith('plan-') ? activity.id : `plan-${activity.id}`, minutes, stage: 'Understand', format: 'write', options: undefined, selectCount: undefined,
+    title: 'Dein erster Projektbaustein.', prompt: `Plane einen ersten kleinen Schritt zu «${activity.title}». Beschreibe, welche Regel du brauchst und woran du den Erfolg dieses Schritts prüfen würdest.`,
+    criteria: [], rationale: 'Dein Zeitrahmen reicht für einen kleinen Projektplan. Die Umsetzung folgt in einer längeren Einheit.',
   }
 }
 

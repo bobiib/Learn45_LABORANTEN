@@ -78,12 +78,12 @@ export function LearningAnswer({ activity, draft, onChange, disabled, label = 'D
       </div>
       {draft.reading && <p className="learn-loading" role="status"><LoaderCircle className="size-3 animate-spin motion-reduce:animate-none" /> Datei wird vorbereitet …</p>}
       {fileError && <p className="learn-inline-error" role="alert">{fileError}</p>}
-      <p className="learn-footnote">Die Datei bleibt bis zur Abgabe in dieser Sitzung. {codeTask ? 'Quelltext wird als Text behandelt und nicht im Browser ausgeführt.' : 'PDF, DOCX und ZIP brauchen eine serverseitige Inhaltsprüfung.'}</p>
+      <p className="learn-footnote">{codeTask ? 'Code wird hier nicht ausgeführt. Die fachliche Prüfung folgt im Backend.' : 'Dateien bleiben in dieser Sitzung; Dokumente brauchen eine fachliche Prüfung.'}</p>
     </>}
 
     {(!activity.options || requiresReason) && <div className="learn-answer-area">
       <div className="learn-answer-heading"><label htmlFor={inputId}>{activity.options ? 'Was ist deine Begründung?' : activity.format === 'artifact' ? draft.file ? 'Wie hast du deine Arbeit geprüft?' : codeTask ? 'Beschreibe deine Testfälle' : 'Vorlage oder kurze Erläuterung' : label}</label><span>{count ? `${count} Wörter` : activity.options ? 'Ein Satz reicht.' : 'In deinen Worten.'}</span></div>
-      <Textarea id={inputId} className="learn-input" rows={activity.options ? 3 : 6} disabled={disabled || draft.reading} value={draft.text} autoFocus={autoFocus} onChange={(event) => onChange({ ...draft, text: event.target.value })} placeholder={activity.options ? 'Ich entscheide mich dafür, weil …' : activity.format === 'artifact' ? codeTask ? 'Für einen Sieg teste ich … Für ein Unentschieden …' : 'Schreibe deine Vorlage hier oder erläutere die hochgeladene Datei …' : 'Formuliere deinen Auftrag. Du kannst ihn danach weiterentwickeln …'} />
+      <Textarea id={inputId} className="learn-input" rows={activity.options ? 3 : 6} disabled={disabled || draft.reading} value={draft.text} autoFocus={autoFocus} onChange={(event) => onChange({ ...draft, text: event.target.value })} placeholder={activity.options ? 'Ich entscheide mich dafür, weil …' : activity.format === 'artifact' ? codeTask ? 'Für einen Sieg teste ich … Für ein Unentschieden …' : 'Schreibe deine Vorlage hier oder erläutere die hochgeladene Datei …' : codeTask ? 'Mein Testfall … Das erwartete Ergebnis …' : 'Halte deinen Gedanken hier fest …'} />
     </div>}
   </div>
 }

@@ -284,7 +284,7 @@ function App() {
         </motion.div>
       </AnimatePresence>}
     </main>
-    <footer className="mx-auto max-w-[1440px] px-4 pb-8 text-center text-xs tracking-wide text-muted-foreground sm:px-6 lg:px-10">AUFGABE <span className="mx-2 text-border">→</span> VERSUCH <span className="mx-2 text-border">→</span> RÜCKMELDUNG <span className="mx-2 text-border">→</span> ANPASSUNG <span className="mx-2 text-border">→</span> FORTSCHRITT</footer>
+    {page !== 'question' && <footer className="mx-auto max-w-[1440px] px-4 pb-8 text-center text-xs tracking-wide text-muted-foreground sm:px-6 lg:px-10">AUFGABE <span className="mx-2 text-border">→</span> VERSUCH <span className="mx-2 text-border">→</span> RÜCKMELDUNG <span className="mx-2 text-border">→</span> ANPASSUNG <span className="mx-2 text-border">→</span> FORTSCHRITT</footer>}
   </div>
 }
 
