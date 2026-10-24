@@ -44,7 +44,7 @@ export default function QuestionGraphDebug({ question }: { question: LearningQue
       return {
         id: item.id,
         position: positions.get(item.id) ?? { x: 36, y: 42 },
-        data: { label: <div className="space-y-2"><span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Step {graph.nodes.indexOf(item) + 1} · {item.id}</span><p className="whitespace-normal text-sm leading-6 text-foreground">{item.step}</p></div> },
+        data: { label: <div className="space-y-2"><span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Schritt {graph.nodes.indexOf(item) + 1} · {item.id}</span><p className="whitespace-normal text-sm leading-6 text-foreground">{item.step}</p></div> },
         style: { width: 272, minHeight: 104, border: '1px solid var(--border)', borderRadius: 16, padding: 16, background: 'var(--card)', color: 'var(--foreground)', boxShadow: '0 5px 18px color-mix(in oklab, var(--foreground) 6%, transparent)' },
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
@@ -68,11 +68,11 @@ export default function QuestionGraphDebug({ question }: { question: LearningQue
 
   return <>
     <Button variant="ghost" size="sm" className="fixed right-0 top-1/2 z-50 h-auto -translate-y-1/2 rounded-r-none border border-r-0 border-border bg-card/85 px-2 py-3 text-[10px] text-muted-foreground shadow-sm [writing-mode:vertical-rl] hover:text-foreground" aria-expanded={open} aria-controls="question-graph-debug-panel" onClick={toggle}>
-      Graph · debug
+      Diagramm · Debug
     </Button>
-    {open && <div id="question-graph-debug-panel" role="region" aria-label="Question reasoning graph debug view" className="fixed inset-y-0 right-0 z-40 flex w-[min(92vw,660px)] flex-col border-l border-border bg-background shadow-2xl">
-      <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4"><div className="min-w-0"><p className="eyebrow">DEBUG VIEW</p><h2 className="mt-1 truncate text-base font-semibold">Reasoning graph</h2><p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{question.title}</p></div><Button variant="ghost" size="icon-sm" aria-label="Close graph debug view" onClick={toggle}><X aria-hidden="true" /></Button></div>
-      {nodes.length ? <div className="min-h-0 flex-1 overflow-auto p-3"><div className="flow-shell relative mx-auto overflow-hidden rounded-2xl border border-border bg-background" style={{ width, height }}><ReactFlow key={`${question.id}-${width}-${height}`} nodes={nodes} edges={edges} minZoom={.55} maxZoom={1.5} defaultViewport={{ x: 0, y: 0, zoom: 1 }} nodesConnectable={false} nodesDraggable={false} proOptions={{ hideAttribution: true }}><Background color="var(--border)" gap={20} size={1} /><Controls showInteractive={false} position="bottom-right" /></ReactFlow></div></div> : <p className="m-5 rounded-xl bg-muted p-4 text-sm leading-6 text-muted-foreground">This question has no reasoning graph yet. New AI generated questions include one after plan generation is updated.</p>}
+    {open && <div id="question-graph-debug-panel" role="region" aria-label="Debugansicht des Lösungswegs" className="fixed inset-y-0 right-0 z-40 flex w-[min(92vw,660px)] flex-col border-l border-border bg-background shadow-2xl">
+      <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4"><div className="min-w-0"><p className="eyebrow">DEBUGANSICHT</p><h2 className="mt-1 truncate text-base font-semibold">Lösungsweg</h2><p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{question.title}</p></div><Button variant="ghost" size="icon-sm" aria-label="Debugansicht schliessen" onClick={toggle}><X aria-hidden="true" /></Button></div>
+      {nodes.length ? <div className="min-h-0 flex-1 overflow-auto p-3"><div className="flow-shell relative mx-auto overflow-hidden rounded-2xl border border-border bg-background" style={{ width, height }}><ReactFlow key={`${question.id}-${width}-${height}`} nodes={nodes} edges={edges} minZoom={.55} maxZoom={1.5} defaultViewport={{ x: 0, y: 0, zoom: 1 }} nodesConnectable={false} nodesDraggable={false} proOptions={{ hideAttribution: true }}><Background color="var(--border)" gap={20} size={1} /><Controls showInteractive={false} position="bottom-right" /></ReactFlow></div></div> : <p className="m-5 rounded-xl bg-muted p-4 text-sm leading-6 text-muted-foreground">Zu dieser Frage gibt es noch keinen Lösungsweg. Neu generierte KI-Fragen erhalten ihn, sobald die Planerstellung aktualisiert wurde.</p>}
     </div>}
   </>
 }

@@ -30,7 +30,7 @@ export type ReviewResult = {
 }
 
 export type LearningMode = 'solo' | 'coach' | 'together'
-export type ActivityFormat = 'write' | 'choose' | 'spot' | 'artifact'
+export type ActivityFormat = 'write' | 'choose' | 'spot' | 'artifact' | 'tutor'
 export type ActivityCriterion = { id: string; label: string; explanation: string; pattern?: string }
 export type CriterionResult = { id: string; label: string; met: boolean; explanation: string }
 export type LearningActivity = {
@@ -50,6 +50,8 @@ export type LearningActivity = {
   accept?: string
   fileLabel?: string
   transfer?: boolean
+  reasoningGraph?: { nodes: { id: string; step: string }[]; edges: { source: string; target: string; deduction: string }[] }
+  difficultyLabel?: 'Schwierig' | 'Genau richtig' | 'Leicht'
 }
 
 export type PracticeAttempt = {

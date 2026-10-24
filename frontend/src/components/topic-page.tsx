@@ -13,7 +13,8 @@ import { Select as UISelect, SelectContent, SelectItem, SelectTrigger, SelectVal
 import { Progress } from '@/components/ui/progress'
 import { ErrorNotice, LoadingCard, LoadingInline, SavedNotice } from '@/components/feedback'
 import { bloomStages } from '@/lib/fixtures'
-import type { BloomStage, ChatMessage, LearningQuestion, Topic } from '@/lib/types'
+import type { BloomStage, LearningQuestion, Topic } from '@/lib/types'
+import { questionDifficulty } from '@/lib/question-difficulty'
 
 const preferredLengthLabels: Record<Topic['context']['preferredLength'], string> = { Short: 'Kurz', Balanced: 'Ausgewogen', Detailed: 'Ausführlich' }
 
@@ -27,7 +28,6 @@ const bloomStageLabels: Record<BloomStage, string> = {
 }
 
 const LearningGraph = lazy(() => import('@/components/learning-graph'))
-const AIChatPanel = lazy(() => import('@/components/ai-chat').then((module) => ({ default: module.AIChatPanel })))
 const TopicPlanChat = lazy(() => import('@/components/topic-plan-chat').then((module) => ({ default: module.TopicPlanChat })))
 
 function ProgressBar({ value, label, className = '' }: { value: number; label?: string; className?: string }) {
@@ -57,9 +57,7 @@ export function TopicPage(props: {
   generatingQuestionNodeId: string | null
   onRecommend: () => void
   onGenerateQuestion: (nodeId: string) => void
-  setupMode: boolean
   planChatOpen: boolean
-  setupMessages: ChatMessage[]
   setupError: string
   selectedNode: string | null
   selectedTopicNode: Topic['nodes'][number] | null
@@ -74,7 +72,7 @@ export function TopicPage(props: {
   sourceName: string
   sourceBusyId: string
   onBack: () => void
-  onUpload: (file: File) => void
+  onUpload: (files: File[]) => void
   onSelectNode: (id: string | null) => void
   onFilter: (filters: { short: boolean; partner: boolean; stage: string }) => void
   onSearch: (query: string) => void
@@ -121,11 +119,12 @@ export function TopicPage(props: {
         ref={uploadRef}
         className="sr-only"
         type="file"
+        multiple
         accept=".pdf,.doc,.docx,.txt,.md,.ppt,.pptx"
         aria-label="Weiteres Lernmaterial hochladen"
         onChange={(event) => {
-          const file = event.target.files?.[0]
-          if (file) props.onUpload(file)
+          const files = Array.from(event.target.files ?? [])
+          if (files.length) props.onUpload(files)
           event.target.value = ''
         }}
       />
@@ -139,16 +138,7 @@ export function TopicPage(props: {
           <CalendarDays className="size-3.5" aria-hidden="true" /> {formatExamCountdown(props.context.examDate)}
         </span>
       </div>
-      {props.setupMode ? (
-        <SetupPanel
-          topic={props.topic}
-          messages={props.setupMessages}
-          error={props.setupError}
-          onTopicUpdated={props.onTopicUpdated}
-          onRetry={props.onRetry}
-        />
-      ) : (
-        <>
+      <>
           <section className="topic-banner panel p-4 sm:p-5">
             <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div>
@@ -221,8 +211,7 @@ export function TopicPage(props: {
               />
             </aside>
           </div>
-        </>
-      )}
+      </>
     </div>
   )
 }
@@ -666,88 +655,6 @@ function TopicPlanPanel({
   )
 }
 
-function SetupPanel({
-  topic,
-  messages,
-  error,
-  onTopicUpdated,
-  onRetry,
-}: {
-  topic: Topic
-  messages: ChatMessage[]
-  error: string
-  onTopicUpdated: (topic: Topic) => void
-  onRetry: () => void
-}) {
-  return (
-    <section className="setup-shell mx-auto grid max-w-5xl overflow-hidden rounded-xl border border-border bg-card lg:grid-cols-[.8fr_1.2fr]">
-      <div className="setup-aside border-b border-border bg-muted/40 p-6 sm:p-8 lg:border-b-0 lg:border-r">
-        <Button variant="ghost" onClick={onRetry}>
-          <span className="inline-flex items-center gap-2">
-            <ArrowLeft className="size-4" aria-hidden="true" /> Zurück zum Thema
-          </span>
-        </Button>
-        <span className="mt-8 flex size-10 items-center justify-center rounded-lg border border-border bg-card text-foreground">
-          <Upload className="size-4" aria-hidden="true" />
-        </span>
-        <h1 className="mt-5 text-2xl font-semibold tracking-tight">Dein Lernmaterial ist bereit.</h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Jetzt legen wir den Schwerpunkt fest. Lernpfad und Fragen passen sich deinem Ziel an.
-        </p>
-        <div className="mt-6 rounded-xl border border-border bg-card p-3.5">
-          <div className="flex items-center gap-3">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-foreground">
-              <FileText className="size-4" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{topic.sources[0]?.name ?? 'Lernnotizen'}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">Hinzugefügtes Material</p>
-            </div>
-          </div>
-        </div>
-        <ol className="mt-6 space-y-2.5 text-sm">
-          <li className="flex items-center gap-3 font-medium">
-            <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span> Schwerpunkt festlegen
-          </li>
-          <li className="flex items-center gap-3 text-muted-foreground">
-            <span className="flex size-6 items-center justify-center rounded-full border border-border bg-card text-xs">2</span> Lernpfad ansehen
-          </li>
-          <li className="flex items-center gap-3 text-muted-foreground">
-            <span className="flex size-6 items-center justify-center rounded-full border border-border bg-card text-xs">3</span> Mit dem Üben starten
-          </li>
-        </ol>
-      </div>
-      <div className="flex min-h-[540px] flex-col p-5 sm:p-8">
-        <h2 className="text-xl font-semibold tracking-tight">Was möchtest du erreichen?</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Sag dem Lerncoach, welche Inhalte du verstehen möchtest. Daraus erstellt er passende Lernschritte und Fragen.
-        </p>
-        {error && (
-          <div className="mt-3">
-            <ErrorNotice message={error} />
-          </div>
-        )}
-        <div className="mt-5">
-          <Suspense fallback={<LoadingCard title="Lerncoach wird geöffnet" detail="Chat wird vorbereitet…" />}>
-            <AIChatPanel
-              kind="scope"
-              chatId={`scope-${topic.id}`}
-              topicId={topic.id}
-              initialMessages={messages}
-              title="Lerncoach"
-              detail="Sag dem Lerncoach, worauf du dich konzentrieren möchtest"
-              onTopicUpdated={onTopicUpdated}
-            />
-          </Suspense>
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Tipp: Trenne mehrere Themen mit Kommas (z. B. „Förderkriterien, Antragsprüfung, Praxis-Check“), damit eigene Abschnitte entstehen.
-        </p>
-      </div>
-    </section>
-  )
-}
-
 function LearningContextCard({
   context,
   saving,
@@ -1050,6 +957,7 @@ function QuestionCard({
                 Als Nächstes
               </span>
             )}
+            <span className="inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{questionDifficulty(question)}</span>
             {locked && (
               <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                 <LockKeyhole className="size-2.5" aria-hidden="true" /> Gesperrt

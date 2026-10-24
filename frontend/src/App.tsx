@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'framer-motion'
 import {
@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ErrorNotice, LoadingCard, LoadingInline } from '@/components/feedback'
+import { TopicCreationDialog } from '@/components/ui/topic-creation-dialog'
 import { TopicPage as RedesignedTopicPage } from '@/components/topic-page'
 import { getDeletedTopicIds, getStoredTopic, isDemoMode, learningApi, saveStoredTopic } from '@/lib/api'
 import { initialDashboard, initialTopic, refreshEligibility } from '@/lib/fixtures'
@@ -18,6 +19,7 @@ import { readLearnerContext, writeLearnerContext } from '@/lib/storage'
 import type { ChatMessage, DashboardData, LearningQuestion, Topic } from '@/lib/types'
 
 const LearningSession = lazy(() => import('@/components/learning-session').then((module) => ({ default: module.LearningSession })))
+const AIChatPanel = lazy(() => import('@/components/ai-chat').then((module) => ({ default: module.AIChatPanel })))
 
 type Page = 'dashboard' | 'topic' | 'question'
 const learnerSkills = [
@@ -31,8 +33,6 @@ const pageVariants: Variants = {
   animate: { opacity: 1, y: 0, transition: { duration: 0.24, ease: 'easeOut' } },
   exit: { opacity: 0, y: -5, transition: { duration: 0.14, ease: 'easeIn' } },
 }
-
-const defaultSetupMessages: ChatMessage[] = [{ id: 'setup-welcome', role: 'assistant', text: 'Lass uns einen Lernpfad für deine Notizen gestalten. Was möchtest du erreichen und welche Inhalte sind dafür am wichtigsten?' }]
 
 function App() {
   const [page, setPage] = useState<Page>('dashboard')
@@ -50,11 +50,14 @@ function App() {
   const [appLoading, setAppLoading] = useState(true)
   const [error, setError] = useState('')
   const [topicError, setTopicError] = useState('')
-  const [setupMode, setSetupMode] = useState(false)
-  const [setupDone, setSetupDone] = useState(false)
   const [planChatOpen, setPlanChatOpen] = useState(false)
-  const [setupMessages, setSetupMessages] = useState<ChatMessage[]>(defaultSetupMessages)
-  const [questionFilters, setQuestionFilters] = useState({ short: false, partner: false, stage: 'All stages' })
+  const [topicCreationOpen, setTopicCreationOpen] = useState(false)
+  const [topicCreationStep, setTopicCreationStep] = useState<1 | 2>(1)
+  const [topicCreationTopicId, setTopicCreationTopicId] = useState<string | null>(null)
+  const [topicCreationGenerated, setTopicCreationGenerated] = useState(false)
+  const [topicCreationError, setTopicCreationError] = useState('')
+  const [setupMessages, setSetupMessages] = useState<ChatMessage[]>([])
+  const [questionFilters, setQuestionFilters] = useState({ short: false, partner: false, stage: 'Alle Lernstufen' })
   const [search, setSearch] = useState('')
   const [contextDraft, setContextDraft] = useState(topic.context)
   const [contextSaving, setContextSaving] = useState(false)
@@ -63,7 +66,6 @@ function App() {
   const [editingSource, setEditingSource] = useState<string | null>(null)
   const [sourceName, setSourceName] = useState('')
   const [showAllQuestions, setShowAllQuestions] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const scrollToTop = useCallback(() => {
@@ -88,11 +90,36 @@ function App() {
 
   const handleScopedTopic = useCallback((next: Topic) => {
     updateTopic(next)
-    setSetupDone(true)
-    setSetupMode(false)
+    if (topicCreationOpen && next.id === topicCreationTopicId && next.nodes.length > 0 && next.questions.length > 0) setTopicCreationGenerated(true)
     setPlanChatOpen(true)
-    window.localStorage.setItem(`learn45.topic.ready.${next.id}`, 'true')
-  }, [updateTopic])
+  }, [topicCreationOpen, topicCreationTopicId, updateTopic])
+
+  const openTopicCreation = useCallback(() => {
+    setTopicCreationStep(1)
+    setTopicCreationTopicId(null)
+    setTopicCreationGenerated(false)
+    setTopicCreationError('')
+    setSetupMessages([])
+    setTopicCreationOpen(true)
+  }, [])
+
+  const uploadTopicSources = useCallback(async (files: File[]) => {
+    setTopicCreationError('')
+    setUploadingSource(true)
+    let topicId = topicCreationTopicId ?? undefined
+    for (const file of files) {
+      try {
+        const next = await learningApi.uploadSource(file, topicId)
+        topicId = next.id
+        setTopicCreationTopicId(next.id)
+        updateTopic(next)
+      } catch (cause) {
+        setTopicCreationError(cause instanceof Error ? cause.message : 'Die Datei konnte nicht hinzugefügt werden.')
+        break
+      }
+    }
+    setUploadingSource(false)
+  }, [topicCreationTopicId, updateTopic])
 
   const loadHome = useCallback(async () => {
     setAppLoading(true)
@@ -132,7 +159,7 @@ function App() {
       setTopic(primary)
       setContextDraft(isDemoMode ? readLearnerContext(primary.context) : primary.context)
     } catch (cause) {
-      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Could not load Lea’s learning dashboard.')
+      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Leas Lernübersicht konnte nicht geladen werden.')
     } finally {
       setAppLoading(false)
     }
@@ -147,33 +174,25 @@ function App() {
     scrollToTop()
   }, [page, scrollToTop])
 
-  const readyKey = `learn45.topic.ready.${topic.id}`
-  useEffect(() => {
-    setSetupDone(isDemoMode ? window.localStorage.getItem(readyKey) === 'true' || topic.id === initialTopic.id : topic.nodes.length > 0 && topic.questions.length > 0)
-  }, [readyKey, topic.id, topic.nodes.length, topic.questions.length])
-
-  const openTopic = useCallback(async (topicId: string, isNew = false, focus?: { nodeId: string; partner: boolean }) => {
+  const openTopic = useCallback(async (topicId: string, focus?: { nodeId: string; partner: boolean }) => {
     scrollToTop()
     setPage('topic')
     setTopicError('')
     setTopicLoading(true)
     setBusy(true)
-    setSetupMode(isNew)
-    setSetupDone(!isNew)
     setPlanChatOpen(false)
-    setSetupMessages(defaultSetupMessages)
+    setSetupMessages([])
     setRecommendedQuestionId(null)
     setSelectedNode(focus?.nodeId ?? null)
-    setQuestionFilters({ short: false, partner: focus?.partner ?? false, stage: 'All stages' })
+    setQuestionFilters({ short: false, partner: focus?.partner ?? false, stage: 'Alle Lernstufen' })
     try {
       const next = await learningApi.getTopic(topicId)
       setTopic(next)
       setContextDraft(isDemoMode ? readLearnerContext(next.context) : next.context)
-      setSetupDone(isDemoMode ? window.localStorage.getItem(`learn45.topic.ready.${topicId}`) === 'true' || topicId === initialTopic.id : next.nodes.length > 0 && next.questions.length > 0)
     } catch (cause) {
       const cached = getStoredTopic(topicId)
       if (cached && isDemoMode) setTopic(cached)
-      else setTopicError(cause instanceof Error ? cause.message : 'Could not load this topic.')
+      else setTopicError(cause instanceof Error ? cause.message : 'Dieses Lernthema konnte nicht geladen werden.')
     } finally {
       setTopicLoading(false)
       setBusy(false)
@@ -190,26 +209,13 @@ function App() {
     try {
       const next = await learningApi.uploadSource(file, existingTopicId, controller.signal)
       updateTopic(next)
-      if (!existingTopicId) {
-        setSetupMode(true)
-        setSetupDone(false)
-        window.localStorage.removeItem(`learn45.topic.ready.${next.id}`)
-        setPage('topic')
-        setSetupMessages(defaultSetupMessages)
-      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not add this file.')
+      setError(cause instanceof Error ? cause.message : 'Diese Datei konnte nicht hinzugefügt werden.')
     } finally {
       setUploadingSource(false)
       setBusy(false)
     }
   }, [updateTopic])
-
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>, existingTopicId?: string) {
-    const file = event.target.files?.[0]
-    if (file) void beginUpload(file, existingTopicId)
-    event.target.value = ''
-  }
 
   async function saveContext(event: FormEvent<HTMLFormElement>): Promise<boolean> {
     event.preventDefault()
@@ -223,7 +229,7 @@ function App() {
       window.setTimeout(() => setContextSaved(false), 2500)
       return true
     } catch (cause) {
-      setTopicError(cause instanceof Error ? cause.message : 'Your learning context was not saved.')
+      setTopicError(cause instanceof Error ? cause.message : 'Dein Lernkontext wurde nicht gespeichert.')
       return false
     } finally {
       setContextSaving(false)
@@ -237,7 +243,7 @@ function App() {
       updateTopic(await learningApi.renameSource(topic.id, sourceId, sourceName.trim()))
       setEditingSource(null)
     } catch (cause) {
-      setTopicError(cause instanceof Error ? cause.message : 'Could not rename this source.')
+      setTopicError(cause instanceof Error ? cause.message : 'Diese Quelle konnte nicht umbenannt werden.')
     } finally {
       setSourceBusyId('')
     }
@@ -248,7 +254,7 @@ function App() {
     try {
       updateTopic(await learningApi.deleteSource(topic.id, sourceId))
     } catch (cause) {
-      setTopicError(cause instanceof Error ? cause.message : 'Could not remove this source.')
+      setTopicError(cause instanceof Error ? cause.message : 'Diese Quelle konnte nicht entfernt werden.')
     } finally {
       setSourceBusyId('')
     }
@@ -290,7 +296,7 @@ function App() {
     setContextDraft(isDemoMode ? readLearnerContext(selectedTopic.context) : selectedTopic.context)
     setTopicError('')
     setSelectedNode(question.topicId)
-    setQuestionFilters({ short: false, partner: false, stage: 'All stages' })
+    setQuestionFilters({ short: false, partner: false, stage: 'Alle Lernstufen' })
     startQuestion(question, withTutor)
   }
 
@@ -332,7 +338,7 @@ function App() {
     return topic.questions.filter((question) => {
       const matchesNode = !selectedNode || question.topicId === selectedNode
       const matchesSearch = `${question.title} ${question.prompt}`.toLowerCase().includes(search.toLowerCase())
-      const matchesStage = questionFilters.stage === 'All stages' || question.stage === questionFilters.stage
+      const matchesStage = questionFilters.stage === 'Alle Lernstufen' || question.stage === questionFilters.stage
       const matchesPartner = !questionFilters.partner || question.mode === 'Partner'
       const matchesLength = !questionFilters.short || parseInt(question.duration, 10) <= 5
       return matchesNode && matchesSearch && matchesStage && matchesPartner && matchesLength
@@ -341,19 +347,18 @@ function App() {
 
   const selectedTopicNode = topic.nodes.find((node) => node.id === selectedNode) ?? null
   return <div className="app-frame min-h-screen bg-background text-foreground">
-    <input ref={fileInputRef} className="sr-only" type="file" accept=".pdf,.doc,.docx,.txt,.md,.ppt,.pptx" onChange={(event) => handleFileChange(event)} aria-label="Lernmaterial zum Hochladen auswählen" />
     <AppHeader learnerName={dashboard.learnerName} />
     <main className="mx-auto min-h-[calc(100vh-88px)] w-full max-w-[1440px] px-4 pb-16 pt-3 sm:px-6 sm:pt-4 lg:px-10 lg:pt-5">
       {error && <div className="mb-6"><ErrorNotice message={error} onRetry={() => { setError(''); if (page === 'dashboard') void loadHome() }} /></div>}
-      {appLoading ? <LoadingCard title="Opening Lea’s learning space" detail="Lernbereiche und Fortschritt werden geladen…" /> : <AnimatePresence mode="wait" initial={false}>
+      {appLoading ? <LoadingCard title="Leas Lernbereich wird geöffnet" detail="Lernbereiche und Fortschritt werden geladen …" /> : <AnimatePresence mode="wait" initial={false}>
         <motion.div key={page} variants={pageVariants} initial="initial" animate="animate" exit="exit">
-          {page === 'dashboard' && <>{uploadingSource && <div className="mb-5"><LoadingInline label="Preparing your learning material…" /></div>}<DashboardPage dashboard={dashboard} busy={busy} onOpenTopic={(id) => void openTopic(id)} onStartSuggested={(topicId, questionId, withTutor) => startDashboardMission(topicId, questionId, withTutor)} onDeleteTopic={deleteTopicFromDashboard} onUpload={() => fileInputRef.current?.click()} onSetWeeklyGoal={async (minutes) => {
+          {page === 'dashboard' && <>{uploadingSource && <div className="mb-5"><LoadingInline label="Lernmaterial wird vorbereitet …" /></div>}<DashboardPage dashboard={dashboard} busy={busy} deleteError={error} onOpenTopic={(id) => void openTopic(id)} onStartSuggested={(topicId, questionId, withTutor) => startDashboardMission(topicId, questionId, withTutor)} onDeleteTopic={deleteTopicFromDashboard} onUpload={openTopicCreation} onSetWeeklyGoal={async (minutes) => {
             try {
               const weeklyGoalMinutes = await learningApi.updateWeeklyGoal(minutes)
               setDashboard((current) => ({ ...current, weeklyGoalMinutes }))
               return true
             } catch (cause) {
-              setError(cause instanceof Error ? cause.message : 'Could not update your weekly goal.')
+              setError(cause instanceof Error ? cause.message : 'Dein Wochenziel konnte nicht aktualisiert werden.')
               return false
             }
           }} onContinue={() => {
@@ -362,12 +367,13 @@ function App() {
             const nextQuestion = nextTopic.questions.find((question) => question.title === dashboard.lastSession.detail) ?? nextTopic.questions.find((question) => question.topicId === 'prompt-criteria') ?? nextTopic.questions[0]
             startQuestion(nextQuestion)
           }} /></>}
-          {page === 'topic' && (topicLoading ? <LoadingCard title="Themenbereich wird geöffnet" detail="Lernmaterial, Fortschritt und Lernpfad werden geladen…" /> : <RedesignedTopicPage topic={topic} recommendedQuestionId={recommendedQuestionId} uploading={uploadingSource} recommendationBusy={recommendationBusy} generatingQuestionNodeId={generatingQuestionNodeId} onGenerateQuestion={(nodeId) => void generateQuestionForNode(nodeId)} onRecommend={() => void getNextRecommendedQuestion()} setupMode={setupMode && !setupDone} planChatOpen={planChatOpen} setupMessages={setupMessages} setupError={topicError} selectedNode={selectedNode} selectedTopicNode={selectedTopicNode} questions={visibleQuestions} questionFilters={questionFilters} search={search} context={contextDraft} contextSaving={contextSaving} contextSaved={contextSaved} showAllQuestions={showAllQuestions} onBack={() => setPage('dashboard')} onUpload={(file) => void beginUpload(file, topic.id)} onSelectNode={setSelectedNode} onFilter={setQuestionFilters} onSearch={setSearch} onStartQuestion={startQuestion} onToggleAllQuestions={() => setShowAllQuestions((show) => !show)} onTopicUpdated={handleScopedTopic} onTogglePlanChat={() => setPlanChatOpen((open) => !open)} onSaveContext={saveContext} onContextChange={setContextDraft} onRenameStart={(id, name) => { setEditingSource(id); setSourceName(name) }} editingSource={editingSource} sourceName={sourceName} onSourceNameChange={setSourceName} onRenameSource={(id) => void renameSource(id)} onCancelRename={() => setEditingSource(null)} onDeleteSource={(id) => void deleteSource(id)} sourceBusyId={sourceBusyId} onBackToDashboard={() => setPage('dashboard')} onRetry={() => void openTopic(topic.id, setupMode)} />)}
+          {page === 'topic' && (topicLoading ? <LoadingCard title="Themenbereich wird geöffnet" detail="Lernmaterial, Fortschritt und Lernpfad werden geladen…" /> : <RedesignedTopicPage topic={topic} recommendedQuestionId={recommendedQuestionId} uploading={uploadingSource} recommendationBusy={recommendationBusy} generatingQuestionNodeId={generatingQuestionNodeId} onGenerateQuestion={(nodeId) => void generateQuestionForNode(nodeId)} onRecommend={() => void getNextRecommendedQuestion()} planChatOpen={planChatOpen} setupError={topicError} selectedNode={selectedNode} selectedTopicNode={selectedTopicNode} questions={visibleQuestions} questionFilters={questionFilters} search={search} context={contextDraft} contextSaving={contextSaving} contextSaved={contextSaved} showAllQuestions={showAllQuestions} onBack={() => setPage('dashboard')} onUpload={(files) => { void (async () => { for (const file of files) await beginUpload(file, topic.id) })() }} onSelectNode={setSelectedNode} onFilter={setQuestionFilters} onSearch={setSearch} onStartQuestion={startQuestion} onToggleAllQuestions={() => setShowAllQuestions((show) => !show)} onTopicUpdated={handleScopedTopic} onTogglePlanChat={() => setPlanChatOpen((open) => !open)} onSaveContext={saveContext} onContextChange={setContextDraft} onRenameStart={(id, name) => { setEditingSource(id); setSourceName(name) }} editingSource={editingSource} sourceName={sourceName} onSourceNameChange={setSourceName} onRenameSource={(id) => void renameSource(id)} onCancelRename={() => setEditingSource(null)} onDeleteSource={(id) => void deleteSource(id)} sourceBusyId={sourceBusyId} onBackToDashboard={() => setPage('dashboard')} onRetry={() => void openTopic(topic.id)} />)}
           {page === 'question' && <Suspense fallback={<LoadingCard title="Deine Übung wird geöffnet" detail="Der Lernbereich wird vorbereitet …" />}><LearningSession key={`${topic.id}-${activeQuestion.id}`} topic={topic} question={activeQuestion} startWithCoach={startWithCoach} onBack={() => setPage('topic')} onHome={() => setPage('dashboard')} onProgress={(next) => { updateTopic(next); setDashboard((current) => ({ ...current, lastSession: { topicId: next.id, title: next.title, detail: activeQuestion.title, progress: next.progress } })) }} /></Suspense>}
         </motion.div>
       </AnimatePresence>}
     </main>
     <footer className="mx-auto max-w-[1440px] px-4 pb-8 pt-1 text-center text-[11px] leading-5 text-muted-foreground sm:px-6 lg:px-10"><p>Synthetisches Beispielprofil Lea · Übungsfortschritt zeigt Lernaktivitäten, keine Kompetenzdiagnose.</p></footer>
+    <TopicCreationDialog open={topicCreationOpen} step={topicCreationStep} hasSource={Boolean(topicCreationTopicId)} sourceNames={topicCreationTopicId === topic.id ? topic.sources.map((source) => source.name) : []} hasGeneratedPlan={topicCreationGenerated} uploading={uploadingSource} error={topicCreationError} aiInteraction={topicCreationTopicId && <Suspense fallback={<LoadingCard title="Lernpartner wird geöffnet" detail="Das Gespräch wird vorbereitet …" />}><AIChatPanel kind="scope" chatId={`scope-${topicCreationTopicId}`} topicId={topicCreationTopicId} initialMessages={setupMessages} title="Lernpartner" detail="Teile dein Ziel und deinen Lernkontext" compact planGenerated={topicCreationGenerated} onMessagesChange={setSetupMessages} onTopicUpdated={handleScopedTopic} /></Suspense>} onOpenChange={setTopicCreationOpen} onStepChange={setTopicCreationStep} onUpload={(files) => void uploadTopicSources(files)} onViewPlan={() => { setPage('topic'); setTopicCreationOpen(false) }} />
   </div>
 }
 
@@ -434,7 +440,7 @@ function SkillProgressPanel({ topic, focusNodeId, compact = false }: { topic: To
     </ul>
   </section>
 }
-function DashboardPage({ dashboard, busy, onOpenTopic, onStartSuggested, onDeleteTopic, onUpload, onContinue, onSetWeeklyGoal }: { dashboard: DashboardData; busy: boolean; onOpenTopic: (id: string) => void; onStartSuggested: (topicId: string, questionId: string, withTutor: boolean) => void; onDeleteTopic: (id: string) => Promise<boolean>; onUpload: () => void; onContinue: () => void; onSetWeeklyGoal: (minutes: number) => Promise<boolean> }) {
+function DashboardPage({ dashboard, busy, deleteError, onOpenTopic, onStartSuggested, onDeleteTopic, onUpload, onContinue, onSetWeeklyGoal }: { dashboard: DashboardData; busy: boolean; deleteError: string; onOpenTopic: (id: string) => void; onStartSuggested: (topicId: string, questionId: string, withTutor: boolean) => void; onDeleteTopic: (id: string) => Promise<boolean>; onUpload: () => void; onContinue: () => void; onSetWeeklyGoal: (minutes: number) => Promise<boolean> }) {
   const reduceMotion = useReducedMotion()
   const [goalMenuOpen, setGoalMenuOpen] = useState(false)
   const [topicToDelete, setTopicToDelete] = useState<Topic | null>(null)
@@ -443,6 +449,7 @@ function DashboardPage({ dashboard, busy, onOpenTopic, onStartSuggested, onDelet
   const [goalMenuPosition, setGoalMenuPosition] = useState<{ top: number; left: number } | null>(null)
   const goalAnchorRef = useRef<HTMLDivElement>(null)
   const goalMenuRef = useRef<HTMLDivElement>(null)
+  const deleteTriggerRef = useRef<HTMLButtonElement | null>(null)
   const percent = Math.min(100, Math.round(dashboard.studyMinutes / dashboard.weeklyGoalMinutes * 100))
   const hasTopics = Array.isArray(dashboard.topics) && dashboard.topics.length > 0
   const suggestionTopic = dashboard.topics?.find((item) => item?.id === dashboard.lastSession?.topicId) ?? dashboard.topics?.[0]
@@ -467,10 +474,31 @@ function DashboardPage({ dashboard, busy, onOpenTopic, onStartSuggested, onDelet
   ] as const
   useEffect(() => {
     if (!topicToDelete) return
-    document.getElementById('cancel-topic-delete')?.focus()
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !deletingTopic) setTopicToDelete(null) }
+    const cancelButton = document.getElementById('cancel-topic-delete') as HTMLButtonElement | null
+    if (cancelButton?.disabled) document.getElementById('delete-topic-dialog')?.focus()
+    else cancelButton?.focus()
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !deletingTopic) {
+        event.preventDefault()
+        setTopicToDelete(null)
+      }
+      if (event.key !== 'Tab') return
+      const dialog = document.getElementById('delete-topic-dialog')
+      const items = dialog?.querySelectorAll<HTMLElement>('button:not(:disabled)')
+      if (!items?.length) return
+      if (event.shiftKey && document.activeElement === items[0]) {
+        event.preventDefault()
+        items[items.length - 1].focus()
+      } else if (!event.shiftKey && document.activeElement === items[items.length - 1]) {
+        event.preventDefault()
+        items[0].focus()
+      }
+    }
     document.addEventListener('keydown', closeOnEscape)
-    return () => document.removeEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape)
+      if (deleteTriggerRef.current?.isConnected) deleteTriggerRef.current.focus()
+    }
   }, [topicToDelete, deletingTopic])
   useEffect(() => {
     if (!goalMenuOpen) { setGoalMenuPosition(null); return }
@@ -536,7 +564,7 @@ function DashboardPage({ dashboard, busy, onOpenTopic, onStartSuggested, onDelet
     <section>
       <SectionHeading eyebrow="DEINE LERNBEREICHE" title="Woran möchtest du arbeiten?" detail={dashboard.topics.length === 1 ? '1 Thema wartet auf dich' : `${dashboard.topics.length} Themen warten auf dich`} />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{dashboard.topics.map((item, index) => <motion.article key={item.id} initial={reduceMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : index * .12 + .15, duration: reduceMotion ? 0 : .45, ease: 'easeOut' }} className="topic-card panel group flex min-h-56 flex-col justify-between transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl motion-reduce:transition-none">
-          <div><div className="mb-5 flex items-start justify-between gap-2"><span className="topic-card-mark flex size-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700"><BookOpen className="size-5" aria-hidden="true" /></span><div className="flex items-center gap-2"><span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{item.subject}</span><Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive focus-visible:ring-destructive/40" aria-label={`Thema „${item.title}“ löschen`} title="Thema löschen" disabled={deletingTopic} onClick={() => setTopicToDelete(item)}><Trash2 className="size-3.5" aria-hidden="true" /></Button></div></div><h3 className="text-lg font-semibold tracking-tight">{item.title}</h3><p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">{item.description}</p></div>
+          <div><div className="mb-5 flex items-start justify-between gap-2"><span className="topic-card-mark flex size-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700"><BookOpen className="size-5" aria-hidden="true" /></span><div className="flex items-center gap-2"><span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{item.subject}</span><Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive focus-visible:ring-destructive/40" aria-label={`Thema „${item.title}“ löschen`} title="Thema löschen" disabled={deletingTopic} onClick={(event) => { deleteTriggerRef.current = event.currentTarget; setTopicToDelete(item) }}><Trash2 className="size-3.5" aria-hidden="true" /></Button></div></div><h3 className="text-lg font-semibold tracking-tight">{item.title}</h3><p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">{item.description}</p></div>
           <div className="mt-5"><ProgressBar value={item.progress} label={`${item.nodes.filter((node) => node.progress > 0).length} von ${item.nodes.length} Lernschritten geübt · ${item.sources.length} Materialien`} /><div className="mt-4 flex items-center justify-between"><span className="text-xs text-muted-foreground">{item.updatedLabel}</span><Button variant="ghost" onClick={() => onOpenTopic(item.id)}><span className="inline-flex items-center gap-1.5">Thema öffnen <ArrowRight className="size-4" aria-hidden="true" /></span></Button></div></div>
         </motion.article>)}
         <motion.article initial={reduceMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : dashboard.topics.length * .12 + .15, duration: reduceMotion ? 0 : .45, ease: 'easeOut' }} className="add-topic-card flex min-h-56 flex-col justify-between rounded-[1.5rem] border border-dashed border-border bg-card p-5 transition-[transform,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl motion-reduce:transition-none sm:p-6"><div><div className="add-topic-mark mb-5 flex size-11 items-center justify-center rounded-2xl bg-muted text-primary-foreground"><Plus className="size-5" aria-hidden="true" /></div><p className="eyebrow">LERNBEREICHE ERWEITERN</p><h3 className="mt-1 text-lg font-semibold tracking-tight">Neues Fach oder neuen Ordner anlegen</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Füge Lernmaterial hinzu, um einen neuen Lernbereich anzulegen. Der Lernagent erstellt passende Lernfragen und einen Lernplan.</p></div><div className="mt-5"><Button variant="outline" disabled={busy} onClick={onUpload}><span className="inline-flex items-center gap-2"><Upload className="size-4" aria-hidden="true" /> Notizen auswählen</span></Button></div></motion.article>
@@ -580,7 +608,7 @@ function DashboardPage({ dashboard, busy, onOpenTopic, onStartSuggested, onDelet
         </div>
       </Card>
     </motion.section>}
-{topicToDelete && createPortal(<div className="fixed inset-0 z-[120] grid place-items-center bg-foreground/35 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !deletingTopic) setTopicToDelete(null) }}><section role="alertdialog" aria-modal="true" aria-labelledby="delete-topic-title" aria-describedby="delete-topic-description" className="w-full max-w-md rounded-2xl border border-border bg-card p-5 text-foreground shadow-2xl" onMouseDown={(event) => event.stopPropagation()}><p className="eyebrow text-destructive">THEMA LÖSCHEN</p><h2 id="delete-topic-title" className="mt-1 text-lg font-semibold">„{topicToDelete.title}“ löschen?</h2><p id="delete-topic-description" className="mt-2 text-sm leading-6 text-muted-foreground">Das Thema mit seinen Lernmaterialien, Fragen und Fortschritten wird dauerhaft entfernt. Diese Aktion kann nicht rückgängig gemacht werden.</p><div className="mt-5 flex flex-wrap justify-end gap-2"><Button id="cancel-topic-delete" variant="outline" disabled={deletingTopic} onClick={() => setTopicToDelete(null)}>Abbrechen</Button><Button variant="destructive" disabled={deletingTopic} onClick={() => void confirmTopicDelete()}>{deletingTopic ? <LoadingInline label="Wird gelöscht…" /> : <span className="inline-flex items-center gap-2"><Trash2 className="size-4" aria-hidden="true" /> Thema löschen</span>}</Button></div></section></div>, document.body)}    {goalMenuOpen && createPortal(<div id="weekly-goal-menu" ref={goalMenuRef} className="fixed z-[100] w-52 rounded-xl border border-border bg-card p-2 text-foreground shadow-xl" style={{ top: goalMenuPosition?.top ?? 0, left: goalMenuPosition?.left ?? 0, visibility: goalMenuPosition ? 'visible' : 'hidden', maxHeight: 'min(240px, calc(100dvh - 24px))', overflowY: 'auto' }} role="menu" aria-label="Wochenziel auswählen"><p className="px-3 py-2 text-xs font-semibold text-muted-foreground">Wochenziel</p>{[60,120,180,240].map((minutes) => <Button key={minutes} variant={minutes === dashboard.weeklyGoalMinutes ? 'secondary' : 'ghost'} className="w-full justify-start px-3 py-2 text-sm" role="menuitem" disabled={goalSaving} onClick={async () => { setGoalSaving(true); const saved = await onSetWeeklyGoal(minutes); setGoalSaving(false); if (saved) setGoalMenuOpen(false) }}>{goalSaving ? <span className="inline-flex items-center gap-2"><span className="size-3 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none" />Wird gespeichert</span> : `${minutes} Min.`}</Button>)}</div>, document.body)}
+{topicToDelete && createPortal(<div className="fixed inset-0 z-[120] grid place-items-center bg-foreground/35 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !deletingTopic) setTopicToDelete(null) }}><section id="delete-topic-dialog" tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="delete-topic-title" aria-describedby="delete-topic-description" className="w-full max-w-md rounded-2xl border border-border bg-card p-5 text-foreground shadow-2xl" onMouseDown={(event) => event.stopPropagation()}><p className="eyebrow text-destructive">THEMA LÖSCHEN</p><h2 id="delete-topic-title" className="mt-1 text-lg font-semibold">„{topicToDelete.title}“ löschen?</h2><p id="delete-topic-description" className="mt-2 text-sm leading-6 text-muted-foreground">Das Thema mit seinen Lernmaterialien, Fragen und Fortschritten wird dauerhaft entfernt. Diese Aktion kann nicht rückgängig gemacht werden.</p>{deleteError && <p className="mt-3 text-sm text-destructive" role="alert">{deleteError}</p>}<div className="mt-5 flex flex-wrap justify-end gap-2"><Button id="cancel-topic-delete" variant="outline" disabled={deletingTopic} onClick={() => setTopicToDelete(null)}>Abbrechen</Button><Button variant="destructive" disabled={deletingTopic} onClick={() => void confirmTopicDelete()}>{deletingTopic ? <LoadingInline label="Wird gelöscht…" /> : <span className="inline-flex items-center gap-2"><Trash2 className="size-4" aria-hidden="true" /> Thema löschen</span>}</Button></div></section></div>, document.body)}    {goalMenuOpen && createPortal(<div id="weekly-goal-menu" ref={goalMenuRef} className="fixed z-[100] w-52 rounded-xl border border-border bg-card p-2 text-foreground shadow-xl" style={{ top: goalMenuPosition?.top ?? 0, left: goalMenuPosition?.left ?? 0, visibility: goalMenuPosition ? 'visible' : 'hidden', maxHeight: 'min(240px, calc(100dvh - 24px))', overflowY: 'auto' }} role="menu" aria-label="Wochenziel auswählen"><p className="px-3 py-2 text-xs font-semibold text-muted-foreground">Wochenziel</p>{[60,120,180,240].map((minutes) => <Button key={minutes} variant={minutes === dashboard.weeklyGoalMinutes ? 'secondary' : 'ghost'} className="w-full justify-start px-3 py-2 text-sm" role="menuitem" disabled={goalSaving} onClick={async () => { setGoalSaving(true); const saved = await onSetWeeklyGoal(minutes); setGoalSaving(false); if (saved) setGoalMenuOpen(false) }}>{goalSaving ? <span className="inline-flex items-center gap-2"><span className="size-3 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none" />Wird gespeichert</span> : `${minutes} Min.`}</Button>)}</div>, document.body)}
   </div>
 }
 

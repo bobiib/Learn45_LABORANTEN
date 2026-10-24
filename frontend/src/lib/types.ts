@@ -44,7 +44,7 @@ export type LearningQuestion = {
   mode: 'Solo' | 'Partner'
   duration: string
   status: 'recommended' | 'completed' | 'up-next'
-  difficultyLabel?: 'Hard' | 'Just right' | 'Easy'
+  difficultyLabel?: 'Schwierig' | 'Genau richtig' | 'Leicht'
   sources?: SourceReference[]
 }
 
@@ -103,9 +103,9 @@ export type TopicChangeSet = {
   topic: { title?: string | null; subject?: string | null; description?: string | null }
   context: Partial<LearnerContext>
   nodes: { id: string; label?: string | null; description?: string | null; prerequisites?: string[] | null }[]
-  questions: { id: string; title?: string | null; prompt?: string | null; stage?: BloomStage | null; mode?: 'Solo' | 'Partner' | null; durationMinutes?: number | null; sources?: SourceReference[] | null }[]
+  questions: { id: string; title?: string | null; prompt?: string | null; format?: 'write' | 'choose' | 'spot' | 'artifact' | 'tutor' | null; options?: { id: string; text: string; correct: boolean; explanation: string }[] | null; selectCount?: number | null; stage?: BloomStage | null; mode?: 'Solo' | 'Partner' | null; durationMinutes?: number | null; sources?: SourceReference[] | null }[]
   addNodes: { key: string; label: string; description: string; prerequisites: string[] }[]
-  addQuestions: { nodeRef: string; title: string; prompt: string; stage: BloomStage; mode: 'Solo' | 'Partner'; durationMinutes: number; sources?: SourceReference[] }[]
+  addQuestions: { nodeRef: string; title: string; prompt: string; format: 'write' | 'choose' | 'spot' | 'artifact' | 'tutor'; options?: { id: string; text: string; correct: boolean; explanation: string }[]; selectCount?: number; stage: BloomStage; mode: 'Solo' | 'Partner'; durationMinutes: number; sources?: SourceReference[] }[]
   deleteNodeIds: string[]
   deleteQuestionIds: string[]
 }

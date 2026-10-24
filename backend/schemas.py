@@ -26,6 +26,7 @@ class RenameSourcePayload(BaseModel):
 class AnswerPayload(BaseModel):
     questionId: str
     answer: str = PydanticField(min_length=1, max_length=12000)
+    selectedOptionIds: list[str] = PydanticField(default_factory=list, max_length=6)
     hintsUsed: int = PydanticField(default=0, ge=0, le=3)
     tutorUsed: bool = False
     difficulty: Difficulty | None = None
@@ -141,14 +142,31 @@ class PlanNodeChange(BaseModel):
     prerequisites: list[str] | None = PydanticField(default=None, max_length=8)
 
 
+class GeneratedQuestionOption(BaseModel):
+    id: str = PydanticField(min_length=1, max_length=48)
+    text: str = PydanticField(min_length=1, max_length=500)
+    correct: bool
+    explanation: str = PydanticField(min_length=1, max_length=500)
+
+
 class PlanQuestionChange(BaseModel):
     id: str = PydanticField(min_length=1, max_length=80)
     title: str | None = PydanticField(default=None, max_length=180)
     prompt: str | None = PydanticField(default=None, max_length=5000)
+    format: Literal["write", "choose", "spot", "artifact", "tutor"] | None = None
+    options: list[GeneratedQuestionOption] | None = PydanticField(default=None, max_length=6)
+    selectCount: int | None = PydanticField(default=None, ge=1, le=6)
     stage: BloomStage | None = None
     mode: Literal["Solo", "Partner"] | None = None
     durationMinutes: int | None = PydanticField(default=None, ge=1, le=30)
     sources: list[SourceReference] | None = PydanticField(default=None, max_length=3)
+
+    @model_validator(mode="after")
+    def validate_activity(self) -> "PlanQuestionChange":
+        if self.options is not None and self.format in {"choose", "spot"}:
+            if not 3 <= len(self.options) <= 5 or sum(option.correct for option in self.options) != (self.selectCount or 1):
+                raise ValueError("Choose and spot questions need 3–5 options and the declared number of correct options.")
+        return self
 
 
 class PlanNodeAddition(BaseModel):
@@ -162,10 +180,22 @@ class PlanQuestionAddition(BaseModel):
     nodeRef: str = PydanticField(min_length=1, max_length=80)
     title: str = PydanticField(min_length=1, max_length=180)
     prompt: str = PydanticField(min_length=1, max_length=5000)
+    format: Literal["write", "choose", "spot", "artifact", "tutor"] = "write"
+    options: list[GeneratedQuestionOption] = PydanticField(default_factory=list, max_length=6)
+    selectCount: int = PydanticField(default=1, ge=1, le=6)
     stage: BloomStage
     mode: Literal["Solo", "Partner"] = "Solo"
     durationMinutes: int = PydanticField(default=5, ge=1, le=30)
     sources: list[SourceReference] = PydanticField(default_factory=list, max_length=3)
+
+    @model_validator(mode="after")
+    def validate_activity(self) -> "PlanQuestionAddition":
+        if self.format in {"choose", "spot"}:
+            if not 3 <= len(self.options) <= 5 or sum(option.correct for option in self.options) != self.selectCount:
+                raise ValueError("Choose and spot questions need 3–5 options and the declared number of correct options.")
+        elif self.options:
+            raise ValueError("Only choose and spot questions may include options.")
+        return self
 
 
 class TopicChangeSet(BaseModel):
@@ -201,6 +231,9 @@ class PlanQuestionOutput(BaseModel):
     nodeKey: str = PydanticField(min_length=1, max_length=64)
     title: str = PydanticField(min_length=1, max_length=180)
     prompt: str = PydanticField(min_length=1, max_length=5000)
+    format: Literal["write", "choose", "spot", "artifact", "tutor"] = "write"
+    options: list[GeneratedQuestionOption] = PydanticField(default_factory=list, max_length=6)
+    selectCount: int = PydanticField(default=1, ge=1, le=6)
     stage: BloomStage
     mode: Literal["Solo", "Partner"] = "Solo"
     durationMinutes: int = PydanticField(default=5, ge=1, le=30)
@@ -221,6 +254,15 @@ class GeneratedPlan(BaseModel):
         if not self.nodes:
             return self
         node_keys = {node.key for node in self.nodes}
+        formats = [question.format for question in self.questions]
+        if len(set(formats)) < 4 or formats.count("tutor") < 2:
+            raise ValueError("The plan must use at least four activity formats, including two tutor-guided questions.")
+        for question in self.questions:
+            if question.format in {"choose", "spot"}:
+                if not 3 <= len(question.options) <= 5 or sum(option.correct for option in question.options) != question.selectCount:
+                    raise ValueError("Choose and spot questions need 3–5 options and the declared number of correct options.")
+            elif question.options:
+                raise ValueError("Only choose and spot questions may include options.")
         questions_by_node: dict[str, list[PlanQuestionOutput]] = {key: [] for key in node_keys}
         for question in self.questions:
             if question.nodeKey not in questions_by_node:
@@ -258,7 +300,19 @@ class AnswerEvaluation(BaseModel):
 class GeneratedPracticeQuestion(BaseModel):
     title: str = PydanticField(min_length=1, max_length=180)
     prompt: str = PydanticField(min_length=1, max_length=5000)
+    format: Literal["write", "choose", "spot", "artifact", "tutor"] = "write"
+    options: list[GeneratedQuestionOption] = PydanticField(default_factory=list, max_length=6)
+    selectCount: int = PydanticField(default=1, ge=1, le=6)
     stage: BloomStage
     durationMinutes: int = PydanticField(default=5, ge=1, le=30)
     sources: list[SourceReference] = PydanticField(default_factory=list, max_length=3)
     reasoningGraph: ReasoningGraph
+
+    @model_validator(mode="after")
+    def validate_format(self) -> "GeneratedPracticeQuestion":
+        if self.format in {"choose", "spot"}:
+            if not 3 <= len(self.options) <= 5 or sum(option.correct for option in self.options) != self.selectCount:
+                raise ValueError("Choose and spot questions need 3–5 options and the declared number of correct options.")
+        elif self.options:
+            raise ValueError("Only choose and spot questions may include options.")
+        return self

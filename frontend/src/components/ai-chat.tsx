@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { TextStreamChatTransport, type UIMessage } from 'ai'
 import { useChat } from '@ai-sdk/react'
-import { ArrowUp } from 'lucide-react'
+import { ArrowUp, RotateCcw } from 'lucide-react'
 import { AIConfirmationDialog } from '@/components/ui/ai-confirmation-dialog'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -44,6 +44,22 @@ function toAppMessages(messages: UIMessage[]): ChatMessage[] {
     const text = message.parts.flatMap((part) => part.type === 'text' ? [part.text] : []).join('')
     return text ? [{ id: message.id, role: message.role, text }] : []
   })
+}
+
+function readableError(message: string) {
+  const jsonStart = message.indexOf('{')
+  if (jsonStart >= 0) {
+    try {
+      const parsed = JSON.parse(message.slice(jsonStart)) as { detail?: unknown }
+      if (typeof parsed.detail === 'string') {
+        if (parsed.detail.startsWith('Gemini hat eine unvollständige oder ungültige Antwort geliefert.')) {
+          return 'Gemini konnte den Lernplan nicht vollständig erstellen. Bitte versuche es erneut.'
+        }
+        return parsed.detail
+      }
+    } catch { /* Keep the original message when it is not a JSON API error. */ }
+  }
+  return message
 }
 
 function streamResponse(text: string, signal?: AbortSignal) {
@@ -117,11 +133,11 @@ export function AIChatPanel({
     },
   }), [chatId, kind, onTopicUpdated, questionId, topicId])
 
-  const { messages, sendMessage, status, error } = useChat({
+  const { messages, sendMessage, regenerate, status, error } = useChat({
     id: chatId,
     messages: initial,
     transport,
-    onError: (cause) => setLocalError(cause.message),
+    onError: (cause) => setLocalError(readableError(cause.message)),
     onFinish: () => {
       setLocalError('')
       if (kind === 'scope' && !isDemoMode && topicId) {
@@ -151,6 +167,7 @@ export function AIChatPanel({
       {busy && <LoadingInline label={kind === 'scope' ? 'Lernpfad wird aktualisiert…' : 'Hinweis wird vorbereitet…'} />}
     </div>
     {(localError || error) && <p className="mt-3 text-xs text-destructive" role="alert">{localError || error?.message}</p>}
+    {(localError || error) && messages.some((message) => message.role === 'user') && !planGenerated && <Button variant="outline" size="sm" className="mt-2" disabled={busy} onClick={() => { setLocalError(''); void regenerate() }}><RotateCcw className="size-3.5" aria-hidden="true" /> Erneut versuchen</Button>}
     <form onSubmit={(event) => {
       event.preventDefault()
       const text = input.trim()

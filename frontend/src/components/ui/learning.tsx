@@ -47,7 +47,7 @@ function LearningStartContents({ minutes, onMinutes, onStart, onBack }: { minute
     <span className="learn-start-icon"><Clock3 className="size-6" /></span>
     <Dialog.Title>Wie viel Zeit hast du?</Dialog.Title>
     <Dialog.Description>Eine kleine Einheit, die in deinen Tag passt. Theorie, Übung und Rückblick sind dabei.</Dialog.Description>
-    <div className="learn-duration" role="group" aria-label="Zeit für diese Einheit">{[5, 15, 30].map((value) => <Button key={value} variant={!custom && minutes === value ? 'secondary' : 'outline'} aria-pressed={!custom && minutes === value} onClick={() => { setCustom(false); setCustomMinutes(''); onMinutes(value) }}>{value} Min.</Button>)}</div>
+    <div className="learn-duration" role="group" aria-label="Zeit für diese Einheit">{[5, 15, 30].map((value) => <Button type="button" key={value} variant={!custom && minutes === value ? 'secondary' : 'outline'} aria-pressed={!custom && minutes === value} onClick={() => { setCustom(false); setCustomMinutes(String(value)); onMinutes(value) }}>{value} Min.</Button>)}</div>
     <div className="learn-custom-duration">
       <label htmlFor={inputId}>Eigene Dauer</label>
       <div className="learn-custom-duration-input"><Input id={inputId} type="number" inputMode="numeric" min={5} max={180} step={1} value={customMinutes} placeholder="Zum Beispiel 25" aria-invalid={invalid || undefined} aria-describedby={`${inputId}-hint`} onChange={(event) => {

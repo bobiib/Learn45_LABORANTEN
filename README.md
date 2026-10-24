@@ -91,10 +91,10 @@ Then copy `frontend/.env.example` to `frontend/.env.local`, set `VITE_DEMO_MODE=
 To reset all backend development data, run this from the repository root:
 
 ```bash
-python reset_db.py
+python3 reset_db.py
 ```
 
-The command asks you to type `RESET`, then deletes and recreates the local SQLite database with the starter learner and clears uploaded source files. This removes topics, plans, questions, attempts, learner settings, extracted source text, and uploaded originals. Use `python reset_db.py --yes` to skip the prompt. It refuses non-SQLite databases and data paths outside `backend/data/`.
+The command asks you to type `RESET`, then deletes and recreates the local SQLite database with the starter learner and clears uploaded source files. This removes topics, plans, questions, attempts, learner settings, extracted source text, and uploaded originals. Use `python3 reset_db.py --yes` to skip the prompt. The command automatically uses `backend/.venv` when present. If backend dependencies are not installed yet, create that environment and install them with `python3 -m venv backend/.venv` and `backend/.venv/bin/python -m pip install -r backend/requirements.txt`. It refuses non-SQLite databases and data paths outside `backend/data/`.
 
 ## Shared team skill
 

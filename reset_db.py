@@ -8,11 +8,27 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = ROOT_DIR / "backend"
+VENV_PYTHON = BACKEND_DIR / ".venv" / "bin" / "python"
+if VENV_PYTHON.is_file() and Path(sys.prefix).resolve() != VENV_PYTHON.parent.parent.resolve():
+    import os
+
+    os.execv(str(VENV_PYTHON), [str(VENV_PYTHON), __file__, *sys.argv[1:]])
+
 sys.path.insert(0, str(BACKEND_DIR))
 
-from db import create_db_and_tables, engine  # noqa: E402
-from settings import get_settings  # noqa: E402
-from sqlalchemy.engine import make_url  # noqa: E402
+try:
+    from db import create_db_and_tables, engine  # noqa: E402
+    from settings import get_settings  # noqa: E402
+    from sqlalchemy.engine import make_url  # noqa: E402
+except ModuleNotFoundError as error:
+    if error.name in {"sqlalchemy", "sqlmodel", "pydantic_settings"}:
+        raise SystemExit(
+            "Backend dependencies are missing. From the repository root, set them up with:\n"
+            "  python3 -m venv backend/.venv\n"
+            "  backend/.venv/bin/python -m pip install -r backend/requirements.txt\n"
+            "Then run: python3 reset_db.py"
+        ) from error
+    raise
 
 
 def local_data_paths() -> tuple[Path, Path]:

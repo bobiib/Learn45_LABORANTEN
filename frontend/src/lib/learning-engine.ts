@@ -1,5 +1,6 @@
 import { activityTime } from './learning-content.ts'
 import type { AnswerSubmission, BloomStage, LearningActivity, LearningMode, LearningQuestion, PracticeAttempt, ReviewResult } from './learning-types'
+import { questionDifficulty } from './question-difficulty'
 
 export const bloomLabels: Record<BloomStage, string> = {
   Remember: 'Erinnern', Understand: 'Verstehen', Apply: 'Anwenden',
@@ -106,19 +107,34 @@ export const practiceActivities: LearningActivity[] = [
 
 export function activityForQuestion(question: LearningQuestion): LearningActivity {
   const known = practiceActivities.find((item) => item.id === question.id)
-  if (known) return { ...known }
+  if (known) return { ...known, reasoningGraph: question.reasoningGraph ?? question.content?.reasoningGraph as LearningActivity['reasoningGraph'], difficultyLabel: questionDifficulty(question) }
+  const content = question.content ?? {}
+  const format = ['write', 'choose', 'spot', 'artifact', 'tutor'].includes(question.questionType ?? '')
+    ? question.questionType as LearningActivity['format']
+    : question.stage === 'Create' ? 'artifact' : 'write'
+  const rawOptions = content.options
+  const options = Array.isArray(rawOptions) ? rawOptions.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const option = item as Record<string, unknown>
+    if (typeof option.id !== 'string' || typeof option.text !== 'string') return []
+    return [{ id: option.id, text: option.text, correct: option.correct === true, explanation: typeof option.explanation === 'string' ? option.explanation : '' }]
+  }) : []
   return {
     id: question.id, skillId: question.topicId, title: question.title, prompt: question.prompt,
-    stage: question.stage, minutes: parseInt(question.duration, 10) || 4, format: question.stage === 'Create' ? 'artifact' : 'write',
+    stage: question.stage, minutes: parseInt(question.duration, 10) || 4, format,
     rationale: 'Diese Aufgabe vertieft dein aktuelles Lernziel.',
     scenario: { title: 'Dein Lernmaterial', text: 'Beziehe dich bei deiner Antwort auf das Material in deinem Themenraum.', source: 'Eigene Unterlagen' },
-    criteria: [], hints: ['Was soll deine Antwort zeigen?', 'Teile die Aufgabe in einen ersten kleinen Schritt.', 'Welche Stelle in deinem Lernmaterial hilft beim ersten Schritt?'], accept: '.txt,.md,.pdf,.docx,.py', fileLabel: 'Text, Dokument oder Code · bis 5 MB',
+    criteria: [], hints: ['Was soll deine Antwort zeigen?', 'Teile die Aufgabe in einen ersten kleinen Schritt.', 'Welche Stelle in deinem Lernmaterial hilft beim ersten Schritt?'], options: options.length ? options : undefined, selectCount: typeof content.selectCount === 'number' ? content.selectCount : 1, accept: '.txt,.md,.pdf,.docx,.py', fileLabel: 'Text, Dokument oder Code · bis 5 MB', reasoningGraph: question.reasoningGraph ?? content.reasoningGraph as LearningActivity['reasoningGraph'], difficultyLabel: questionDifficulty(question),
   }
 }
 
 /** Include actual theory, both partners' attempts, and closure before reducing scope. */
 export function fitActivityToBudget(activity: LearningActivity, budget: number, mode: LearningMode = 'solo'): LearningActivity {
   if (activityTime(activity, mode) <= budget) return activity
+  if (activity.format === 'tutor') return {
+    ...activity, minutes: 2,
+    prompt: `${activity.prompt} Arbeite mit dem KI-Tutor nur den wichtigsten Teilschritt durch.`,
+  }
   const minutes = mode === 'together' ? 1 : 2
   if (activity.skillId === 'prompt-criteria' && activity.format === 'write') return {
     ...activity, minutes, prompt: 'Überarbeite nur die Vorgabe «kurz»: Lege einen konkreten Umfang für das Projektupdate fest.',

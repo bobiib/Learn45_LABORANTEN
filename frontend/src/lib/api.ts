@@ -67,13 +67,13 @@ const demoApi: LearningApi = {
     const cached = window.localStorage.getItem(`learn45.topic.${topicId}`)
     if (cached) return JSON.parse(cached) as Topic
     if (topicId === initialTopic.id) return structuredClone(initialTopic)
-    throw new ApiError('We could not find this learning topic.', 404)
+    throw new ApiError('Dieses Lernthema wurde nicht gefunden.', 404)
   },
   async uploadSource(file, topicId, signal) {
     await pause(signal, 1050)
     if (topicId) {
       const topic = await this.getTopic(topicId, signal)
-      const updated = { ...topic, sources: [...topic.sources, { id: `source-${Date.now()}`, name: file.name, kind: file.name.split('.').pop()?.toUpperCase() ?? 'FILE', sizeLabel: 'Ready to process', addedLabel: 'Just added' }] }
+      const updated = { ...topic, sources: [...topic.sources, { id: `source-${Date.now()}`, name: file.name, kind: file.name.split('.').pop()?.toUpperCase() ?? 'DATEI', sizeLabel: 'Bereit zur Verarbeitung', addedLabel: 'Gerade hinzugefügt' }] }
       window.localStorage.setItem(`learn45.topic.${topicId}`, JSON.stringify(updated))
       return updated
     }
@@ -123,18 +123,31 @@ const demoApi: LearningApi = {
     if (examDate) changes.context.examDate = examDate
     const tutorSetting = text.match(/(?:tutor|ki-coach)\s+(on|off|enabled|disabled|an|aus|aktiv|deaktiviert)/i)?.[1]?.toLowerCase()
     if (tutorSetting) changes.context.tutorEnabled = ['on', 'enabled', 'an', 'aktiv'].includes(tutorSetting)
-    if (!Object.keys(changes.context).length) changes.assistantMessage = `Ich kann „${topic.title}“ anpassen. Im Demo kannst du zum Beispiel schreiben: „Schwerpunkt auf Zellaufbau setzen“ oder „Lernzeit auf 30 Minuten pro Tag setzen“.`
-    else changes.assistantMessage = 'Hier ist der erkannte Änderungsvorschlag. Prüfe ihn und bestätige ihn, um ihn zu speichern.'
+    const asksToSplit = /\b(split|teilen|teile|aufteilen|unterteilen|in\s+zwei|in\s+2)\b/i.test(text)
+    if (asksToSplit) {
+      const normalized = text.toLowerCase()
+      const target = topic.nodes.find((node) => normalized.includes(node.label.toLowerCase()))
+        ?? topic.nodes.find((node) => /grading|assignment|benotung|aufgabe/i.test(node.label) && /grading|assignment|benotung|aufgabe/i.test(text))
+      if (target && target.progress === 0) {
+        const gradingAufgaben = /grading|assignment|benotung|aufgabe/i.test(`${target.label} ${text}`)
+        const firstLabel = gradingAufgaben ? 'Bewertung' : `Teil 1: ${target.label}`
+        const secondLabel = gradingAufgaben ? 'Aufgaben' : `Teil 2: ${target.label}`
+        changes.nodes.push({ id: target.id, label: firstLabel, description: gradingAufgaben ? 'Bewertungskriterien, Notenfindung und Rückmeldungen verstehen.' : `Erster Teil von ${target.label}: Grundlagen und zentrale Begriffe verstehen.` })
+        changes.addNodes.push({ key: 'split-follow-up', label: secondLabel, description: gradingAufgaben ? 'Aufgaben planen, bearbeiten und anhand der Bewertungskriterien prüfen.' : `Zweiter Teil von ${target.label}: Wissen anwenden und überprüfen.`, prerequisites: [target.id] })
+      }
+    }
+    if (!Object.keys(changes.context).length && !changes.nodes.length && !changes.addNodes.length) changes.assistantMessage = `Ich kann „${topic.title}“ anpassen. Im Demo kannst du zum Beispiel schreiben: „Schwerpunkt auf Zellaufbau setzen“, „Lernzeit auf 30 Minuten pro Tag setzen“ oder einen Lernschritt in zwei Teile aufteilen.`
+    else changes.assistantMessage = 'Hier ist der Änderungsvorschlag. Prüfe ihn und bestätige ihn, um ihn zu speichern.'
     return { assistantMessage: changes.assistantMessage, proposal: changes }
   },
   async applyTopicChanges(topicId, proposal, signal) {
     await pause(signal, 320)
     const topic = await this.getTopic(topicId, signal)
-    if (proposal.deleteNodeIds.some((id) => (topic.nodes.find((node) => node.id === id)?.progress ?? 0) > 0)) throw new ApiError('A learning step with recorded progress cannot be deleted.', 409)
-    if (topic.nodes.some((node) => !proposal.deleteNodeIds.includes(node.id) && node.prerequisites.some((id) => proposal.deleteNodeIds.includes(id)))) throw new ApiError('A learning step used as a prerequisite cannot be deleted until dependent steps are changed.', 409)
-    if (proposal.deleteQuestionIds.some((id) => topic.questions.find((question) => question.id === id)?.status === 'completed')) throw new ApiError('A question with recorded practice cannot be deleted.', 409)
+    if (proposal.deleteNodeIds.some((id) => (topic.nodes.find((node) => node.id === id)?.progress ?? 0) > 0)) throw new ApiError('Ein Lernschritt mit gespeichertem Fortschritt kann nicht gelöscht werden.', 409)
+    if (topic.nodes.some((node) => !proposal.deleteNodeIds.includes(node.id) && node.prerequisites.some((id) => proposal.deleteNodeIds.includes(id)))) throw new ApiError('Ein Lernschritt, von dem andere Schritte abhängen, kann erst nach Anpassung dieser Schritte gelöscht werden.', 409)
+    if (proposal.deleteQuestionIds.some((id) => topic.questions.find((question) => question.id === id)?.status === 'completed')) throw new ApiError('Eine Frage mit gespeicherten Übungsversuchen kann nicht gelöscht werden.', 409)
     const removedNodeQuestions = topic.questions.filter((question) => proposal.deleteNodeIds.includes(question.topicId)).map((question) => question.id)
-    if (removedNodeQuestions.some((id) => !proposal.deleteQuestionIds.includes(id))) throw new ApiError('Deleting a learning step also requires deleting its practice questions.', 422)
+    if (removedNodeQuestions.some((id) => !proposal.deleteQuestionIds.includes(id))) throw new ApiError('Beim Löschen eines Lernschritts müssen auch die dazugehörigen Übungsfragen gelöscht werden.', 422)
     const addedNodeIds = new Map(proposal.addNodes.map((node) => [node.key, node.key]))
     const nodes = topic.nodes.filter((node) => !proposal.deleteNodeIds.includes(node.id)).map((node) => {
       const change = proposal.nodes.find((item) => item.id === node.id)
@@ -147,10 +160,14 @@ const demoApi: LearningApi = {
     })))
     const questions = topic.questions.filter((question) => !proposal.deleteQuestionIds.includes(question.id)).map((question) => {
       const change = proposal.questions.find((item) => item.id === question.id)
-      return change ? { ...question, ...Object.fromEntries(Object.entries(change).filter(([key, value]) => key !== 'id' && key !== 'durationMinutes' && value !== undefined && value !== null)), ...(change.durationMinutes ? { duration: `${change.durationMinutes} min` } : {}) } : question
+      if (!change) return question
+      const { format, options, selectCount, ...fields } = change
+      const hasActivityChange = !!(format || options || selectCount)
+      return { ...question, ...Object.fromEntries(Object.entries(fields).filter(([key, value]) => key !== 'id' && key !== 'durationMinutes' && value !== undefined && value !== null)), ...(change.durationMinutes ? { duration: `${change.durationMinutes} min` } : {}), ...(hasActivityChange ? { questionType: format ?? question.questionType, content: { ...(question.content ?? {}), ...(format ? { format } : {}), ...(options ? { options } : {}), ...(selectCount ? { selectCount } : {}) } } : {}) }
     }).concat(proposal.addQuestions.map((question, index) => ({
       id: `question-demo-${Date.now()}-${index}`, topicId: addedNodeIds.get(question.nodeRef) ?? question.nodeRef,
       title: question.title, prompt: question.prompt, stage: question.stage, mode: question.mode, sources: question.sources,
+      questionType: question.format, content: { format: question.format, options: question.options ?? [], selectCount: question.selectCount ?? 1 },
       duration: `${question.durationMinutes} min`, status: 'up-next' as const,
     })))
     const next: Topic = {
@@ -180,34 +197,34 @@ const demoApi: LearningApi = {
     if (correctness === 'strong') result = {
       correctness,
       estimatedPointsPercent: hintPenalty ? 82 : 94,
-      headline: 'A clear start with a useful purpose',
-      feedback: 'You named a concrete audience or outcome and gave the AI enough direction to make the summary actionable. Next, check whether the requested details can be verified against the notes.',
-      evidenceLabel: hintPenalty ? 'Strong evidence · coached practice' : 'Strong independent evidence',
+      headline: 'Ein klarer Anfang mit einem guten Ziel',
+      feedback: 'Du hast eine konkrete Zielgruppe oder ein klares Ergebnis benannt. So weiss die KI, worauf es bei der Zusammenfassung ankommt. Prüfe als Nächstes, ob sich die Angaben mit den Notizen belegen lassen.',
+      evidenceLabel: hintPenalty ? 'Starker Nachweis · mit Unterstützung' : 'Starker eigenständiger Nachweis',
       evidenceDelta: hintPenalty ? 8 : 14,
-      nextActivity: 'Make the success criteria checkable',
-      nextReason: 'Your prompt has a clear audience. The next step is to specify which evidence should appear so Lea can judge the summary reliably.',
+      nextActivity: 'Erfolgskriterien überprüfbar machen',
+      nextReason: 'Dein Auftrag nennt eine klare Zielgruppe. Lege als Nächstes fest, welche Belege enthalten sein müssen, damit Lea die Zusammenfassung zuverlässig prüfen kann.',
       nextQuestionId: input.questionId === 'q-criteria' ? 'q-revise' : 'q-criteria',
     }
     else if (correctness === 'partial') result = {
       correctness,
       estimatedPointsPercent: hintPenalty ? 48 : 62,
-      headline: 'You have part of the prompt in place',
-      feedback: 'There is a useful detail here. Add the missing audience, outcome, or checkable requirement, then compare the revised prompt with the source notes.',
-      evidenceLabel: hintPenalty ? 'Some evidence · with coaching' : 'Some independent evidence',
+      headline: 'Ein Teil des Auftrags steht schon',
+      feedback: 'Ein hilfreicher Punkt ist schon enthalten. Ergänze noch die Zielgruppe, das gewünschte Ergebnis oder eine überprüfbare Vorgabe. Vergleiche dann den überarbeiteten Auftrag mit den Notizen.',
+      evidenceLabel: hintPenalty ? 'Teilweiser Nachweis · mit Unterstützung' : 'Teilweiser eigenständiger Nachweis',
       evidenceDelta: hintPenalty ? 3 : 6,
-      nextActivity: 'Add one specific quality criterion',
-      nextReason: 'This attempt shows partial understanding. One more concrete requirement will make the next practice question a good fit.',
+      nextActivity: 'Ein konkretes Qualitätskriterium ergänzen',
+      nextReason: 'Dein Versuch zeigt ein teilweises Verständnis. Eine weitere konkrete Vorgabe macht die nächste Übungsfrage passend.',
       nextQuestionId: 'q-criteria',
     }
     else result = {
       correctness,
       estimatedPointsPercent: 12,
-      headline: 'Let’s make the goal more concrete',
-      feedback: 'The answer does not yet name a reader, outcome, or requirement. Look back at who will use the summary and what they need to do with it; try again with a little more detail.',
-      evidenceLabel: 'Practice attempt saved · progress unchanged',
+      headline: 'Machen wir das Ziel konkreter',
+      feedback: 'In deiner Antwort fehlen noch Zielgruppe, Ergebnis oder eine konkrete Vorgabe. Überlege, wer die Zusammenfassung nutzt und was die Person damit tun soll. Versuche es mit etwas mehr Genauigkeit noch einmal.',
+      evidenceLabel: 'Versuch gespeichert · Fortschritt unverändert',
       evidenceDelta: 0,
-      nextActivity: 'Try a shorter question about the reader',
-      nextReason: 'This attempt suggests the audience is still unclear. A smaller step can help before returning to the full prompt.',
+      nextActivity: 'Mit einer kürzeren Frage zur Zielgruppe starten',
+      nextReason: 'Die Zielgruppe ist noch nicht ganz klar. Ein kleinerer Schritt hilft, bevor du zum vollständigen Auftrag zurückkehrst.',
       nextQuestionId: 'q-goal',
     }
     const key = `learn45.attempts.${input.questionId}`
@@ -236,28 +253,28 @@ const demoApi: LearningApi = {
     for (const node of orderedNodes) {
       if (node.progress >= 100 && weaknesses(node.id) < .35) continue
       const question = topic.questions.find((item) => item.topicId === node.id && !history(item.id).length)
-      if (question) return { question, reason: weaknesses(node.id) > 1 ? `Recent practice suggests you could use another step on ${node.label}.` : `Build your skills in ${node.label} before moving on.`, generated: false }
+      if (question) return { question, reason: weaknesses(node.id) > 1 ? `Deine letzten Übungen zeigen, dass ein weiterer Schritt zu „${node.label}“ hilfreich wäre.` : `Übe „${node.label}“, bevor du zum nächsten Thema gehst.`, generated: false }
     }
     const node = orderedNodes.find((item) => weaknesses(item.id) >= .35 && topic.questions.some((question) => question.topicId === item.id))
-    if (!node) return { question: null, reason: 'You have worked through the available questions and there is no unfinished skill that needs another practice question right now.', generated: false }
+    if (!node) return { question: null, reason: 'Du hast die verfügbaren Fragen bearbeitet. Im Moment braucht kein offener Lernschritt eine weitere Übungsfrage.', generated: false }
     const stage = topic.questions.find((question) => question.topicId === node.id)?.stage ?? 'Understand'
     const generated = {
       id: `question-demo-${Date.now()}`, topicId: node.id,
-      title: `Fresh practice: ${node.label}`, prompt: `Use the ideas in “${node.label}” to explain one concrete example. What would you do, and why?`,
+      title: `Neue Übung: ${node.label}`, prompt: `Erkläre anhand eines konkreten Beispiels die wichtigsten Gedanken zu „${node.label}“. Was würdest du tun und warum?`,
       stage, mode: 'Solo' as const, duration: '5 min', status: 'recommended' as const,
     }
     const updated = { ...topic, questions: [...topic.questions, generated] }
     saveStoredTopic(updated)
-    return { question: generated, reason: `Your progress suggests ${node.label} needs another practice example. I added a fresh question for this demo.`, generated: true }
+    return { question: generated, reason: `Dein Fortschritt zeigt, dass du „${node.label}“ noch an einem Beispiel üben kannst. Ich habe eine neue Frage ergänzt.`, generated: true }
   },
   async generateNodeQuestion(topicId, nodeId, signal) {
     await pause(signal, 900)
     const topic = await this.getTopic(topicId, signal)
     const node = topic.nodes.find((item) => item.id === nodeId)
-    if (!node) throw new ApiError('This learning step could not be found.', 404)
+    if (!node) throw new ApiError('Dieser Lernschritt wurde nicht gefunden.', 404)
     const generated: LearningQuestion = {
       id: `question-demo-${Date.now()}`, topicId: node.id,
-      title: `Practice: ${node.label}`, prompt: `Use the ideas in “${node.label}” to explain one concrete example. What would you do, and why?`,
+      title: `Übung: ${node.label}`, prompt: `Erkläre anhand eines konkreten Beispiels die wichtigsten Gedanken zu „${node.label}“. Was würdest du tun und warum?`,
       stage: topic.questions.find((item) => item.topicId === node.id)?.stage ?? 'Understand',
       mode: 'Solo', duration: '5 min', status: 'up-next',
     }
@@ -271,10 +288,10 @@ const demoApi: LearningApi = {
       id: crypto.randomUUID(),
       role: 'assistant',
       text: /audience|reader|lead/i.test(message)
-        ? 'Think about the person who receives the summary. What decision or action should they be able to take after reading it?'
+        ? 'Denk an die Person, die die Zusammenfassung liest. Welche Entscheidung oder Handlung soll ihr danach möglich sein?'
         : /include|criteria|check/i.test(message)
-          ? 'Try naming two details that would make the summary useful and easy to verify, such as decisions and owners.'
-          : 'What do you already know about the reader and the purpose of this summary? Start there, then add one detail the AI can check against the notes.',
+          ? 'Nenne zwei Angaben, die die Zusammenfassung nützlich und überprüfbar machen, etwa Entscheidungen und Zuständigkeiten.'
+          : 'Was weisst du bereits über die Zielgruppe und den Zweck der Zusammenfassung? Beginne damit und ergänze eine Angabe, die sich anhand der Notizen prüfen lässt.',
     }
   },
   async rateDifficulty(questionId, difficulty, signal) {
@@ -314,8 +331,8 @@ async function request<T>(path: string, init: RequestInit = {}, parent?: AbortSi
     return await response.json() as T
   } catch (error) {
     if (error instanceof ApiError) throw error
-    if (timeout.signal.aborted && timeout.signal.reason?.name === 'TimeoutError') throw new ApiError('The server took too long to respond. Please try again.')
-    throw new ApiError('Could not reach the learning service. Check your connection and try again.')
+    if (timeout.signal.aborted && timeout.signal.reason?.name === 'TimeoutError') throw new ApiError('Der Server hat zu lange gebraucht. Bitte versuche es erneut.')
+    throw new ApiError('Der Lerndienst ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.')
   } finally {
     timeout.cleanup()
   }

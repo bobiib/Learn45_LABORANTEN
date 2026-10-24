@@ -29,11 +29,11 @@ def _pdf_text(path: Path) -> str:
                     text = pytesseract.image_to_string(image, lang="eng+deu").strip()
                 except pytesseract.TesseractNotFoundError as error:
                     raise ValueError(
-                        "Scanned PDFs need Tesseract OCR. Install Tesseract and its English/German language data, then restart the backend."
+                        "Für gescannte PDFs wird Tesseract OCR benötigt. Installiere Tesseract mit den Sprachdaten für Deutsch und Englisch und starte das Backend neu."
                     ) from error
                 except pytesseract.TesseractError as error:
                     raise ValueError(
-                        "OCR could not read this scanned PDF. Check that Tesseract has the English and German language data installed."
+                        "Die OCR konnte dieses gescannte PDF nicht lesen. Prüfe, ob die Sprachdaten für Deutsch und Englisch in Tesseract installiert sind."
                     ) from error
             if text:
                 sections.append(f"[Page {page_number + 1}]\n{text}")
@@ -53,19 +53,19 @@ def _legacy_office_to_pdf(path: Path) -> str:
                 timeout=90,
             )
         except FileNotFoundError as error:
-            raise ValueError("Legacy .doc and .ppt files need LibreOffice. Please install LibreOffice or save the file as .docx/.pptx.") from error
+            raise ValueError("Ältere .doc- und .ppt-Dateien benötigen LibreOffice. Installiere LibreOffice oder speichere die Datei als .docx/.pptx.") from error
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
-            raise ValueError("This legacy Office file could not be converted. Try saving it as .docx or .pptx.") from error
+            raise ValueError("Diese ältere Office-Datei konnte nicht konvertiert werden. Speichere sie als .docx oder .pptx.") from error
         converted = Path(temporary) / f"{path.stem}.pdf"
         if not converted.exists():
-            raise ValueError("This legacy Office file could not be converted. Try saving it as .docx or .pptx.")
+            raise ValueError("Diese ältere Office-Datei konnte nicht konvertiert werden. Speichere sie als .docx oder .pptx.")
         return _pdf_text(converted)
 
 
 def extract_text(path: Path) -> str:
     suffix = path.suffix.lower()
     if suffix not in SUPPORTED_SUFFIXES:
-        raise ValueError("Supported files are PDF, DOC/DOCX, TXT, MD, and PPT/PPTX.")
+        raise ValueError("Unterstützte Dateiformate: PDF, DOC/DOCX, TXT, MD und PPT/PPTX.")
     if suffix == ".pdf":
         text = _pdf_text(path)
     elif suffix in {".doc", ".ppt"}:
@@ -87,7 +87,7 @@ def extract_text(path: Path) -> str:
         text = path.read_text(encoding="utf-8-sig", errors="replace")
     cleaned = "\n".join(line.strip() for line in text.splitlines() if line.strip())
     if not cleaned:
-        raise ValueError("No readable text was found in this file.")
+        raise ValueError("In dieser Datei wurde kein lesbarer Text gefunden.")
     return cleaned[:MAX_EXTRACTED_CHARS]
 
 

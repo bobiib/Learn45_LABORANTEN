@@ -25,8 +25,8 @@ export const initialTopic: Topic = {
   updatedLabel: 'Gestern fortgesetzt',
   progress: 42,
   sources: [
-    { id: 'source-1', name: 'Project notes & meeting transcript.pdf', kind: 'PDF', sizeLabel: '2.4 MB', addedLabel: 'Hinzugefügt am 20. Okt.' },
-    { id: 'source-2', name: 'Prompting guidelines — lecture 04.pdf', kind: 'PDF', sizeLabel: '1.1 MB', addedLabel: 'Hinzugefügt am 20. Okt.' },
+    { id: 'source-1', name: 'Projektunterlagen und Sitzungsprotokoll.pdf', kind: 'PDF', sizeLabel: '2.4 MB', addedLabel: 'Hinzugefügt am 20. Okt.' },
+    { id: 'source-2', name: 'Leitfaden für KI-Aufträge — Vorlesung 04.pdf', kind: 'PDF', sizeLabel: '1.1 MB', addedLabel: 'Hinzugefügt am 20. Okt.' },
   ],
   nodes,
   questions: [

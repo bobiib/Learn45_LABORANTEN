@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Check, MessageCircle, Send, Sparkles, X } from 'lucide-react'
+import { Check, Lightbulb, MessageCircle, Send, Sparkles, X } from 'lucide-react'
 import { AIConfirmationDialog } from '@/components/ui/ai-confirmation-dialog'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -14,6 +14,8 @@ function hasChanges(proposal: TopicChangeSet) {
   return Object.keys(proposal.topic).length > 0 || Object.keys(proposal.context).length > 0 || proposal.nodes.length > 0 || proposal.questions.length > 0 || proposal.addNodes.length > 0 || proposal.addQuestions.length > 0 || proposal.deleteNodeIds.length > 0 || proposal.deleteQuestionIds.length > 0
 }
 
+const formatLabels: Record<string, string> = { write: 'Freitext', choose: 'Auswahl', spot: 'Fehler finden', artifact: 'Produkt erstellen', tutor: 'Mit KI-Tutor' }
+
 function changeLabels(proposal: TopicChangeSet, topic: Topic) {
   const changes: string[] = []
   const labels: Record<string, string> = { title: 'Thementitel', subject: 'Fach', description: 'Themenbeschreibung', examDate: 'Prüfungstermin', timeAvailable: 'Verfügbare Lernzeit', preferredLength: 'Fragenlänge', tutorEnabled: 'KI-Coach', focus: 'Lernschwerpunkt' }
@@ -26,13 +28,13 @@ function changeLabels(proposal: TopicChangeSet, topic: Topic) {
   }
   for (const change of proposal.questions) {
     const question = topic.questions.find((item) => item.id === change.id)
-    const details = [change.title ? `Titel → ${change.title}` : '', change.prompt ? `Aufgabe → ${change.prompt}` : '', change.stage ? `Lernstufe → ${change.stage}` : '', change.mode ? `Modus → ${change.mode}` : '', change.durationMinutes ? `Dauer → ${change.durationMinutes} Min.` : ''].filter(Boolean)
+    const details = [change.title ? `Titel → ${change.title}` : '', change.prompt ? `Aufgabe → ${change.prompt}` : '', change.format ? `Format → ${formatLabels[change.format] ?? change.format}` : '', change.stage ? `Lernstufe → ${change.stage}` : '', change.mode ? `Modus → ${change.mode}` : '', change.durationMinutes ? `Dauer → ${change.durationMinutes} Min.` : ''].filter(Boolean)
     changes.push(`Frage „${question?.title ?? 'Übungsfrage'}“: ${details.join('; ')}`)
   }
   for (const node of proposal.addNodes) changes.push(`Lernschritt „${node.label}“ hinzufügen: ${node.description}`)
   for (const question of proposal.addQuestions) {
     const nodeLabel = topic.nodes.find((node) => node.id === question.nodeRef)?.label ?? proposal.addNodes.find((node) => node.key === question.nodeRef)?.label ?? 'ausgewählter Lernschritt'
-    changes.push(`Frage auf Stufe ${question.stage} zu „${nodeLabel}“ hinzufügen: ${question.title} — ${question.prompt}`)
+    changes.push(`Frage auf Stufe ${question.stage} zu „${nodeLabel}“ hinzufügen (${formatLabels[question.format] ?? question.format}): ${question.title} — ${question.prompt}`)
   }
   for (const id of proposal.deleteQuestionIds) {
     const question = topic.questions.find((item) => item.id === id)
@@ -99,13 +101,17 @@ export function TopicPlanChat({ topic, onTopicUpdated }: { topic: Topic; onTopic
       {messages.map((message) => <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}><p className={`max-w-[92%] whitespace-pre-wrap rounded-xl px-3 py-2 text-xs leading-5 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>{message.text}</p></div>)}
       {busy && <LoadingInline label={proposal ? 'Bestätigte Änderungen werden gespeichert…' : 'Vorschlag wird vorbereitet…'} />}
     </div>
-    {proposal && <div className={`rounded-xl border p-3 ${proposal.proposalType === 'alternative' ? 'border-primary/40 bg-accent/40' : 'border-border bg-muted/40'}`} aria-label={proposal.proposalType === 'alternative' ? 'Optionale Alternative' : 'Änderungsvorschlag'}>
-      <div className="flex items-center gap-2 text-sm font-semibold"><MessageCircle className="size-4 text-primary" aria-hidden="true" /> {proposal.proposalType === 'alternative' ? 'Optionale Alternative' : 'Änderungsvorschlag'}</div>
-      {proposal.proposalType === 'alternative' && <p className="mt-1 text-[11px] leading-4 text-muted-foreground">Das ist Leas Alternative zu deinem Wunsch. Sie wird nur übernommen, wenn du sie auswählst.</p>}
+    {proposal && <section className={`rounded-xl border p-3 ${proposal.proposalType === 'alternative' ? 'border-2 border-primary bg-accent/60 shadow-sm' : 'border-border bg-muted/40'}`} aria-label={proposal.proposalType === 'alternative' ? 'Optionale Alternative' : 'Änderungsvorschlag'}>
+      <div className="flex items-start gap-2.5">
+        <span className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg ${proposal.proposalType === 'alternative' ? 'bg-primary text-primary-foreground' : 'bg-muted text-primary'}`}>{proposal.proposalType === 'alternative' ? <Lightbulb className="size-4" aria-hidden="true" /> : <MessageCircle className="size-4" aria-hidden="true" />}</span>
+        <div className="min-w-0"><p className={`text-[10px] font-bold uppercase tracking-[.12em] ${proposal.proposalType === 'alternative' ? 'text-primary' : 'text-muted-foreground'}`}>{proposal.proposalType === 'alternative' ? 'Leas Alternative' : 'Änderungsvorschlag'}</p><p className="mt-0.5 text-sm font-semibold leading-5">{proposal.proposalType === 'alternative' ? 'Stattdessen könntest du das ändern' : 'Dein Lernpfad'}</p>
+          {proposal.proposalType === 'alternative' && <p className="mt-1 text-xs leading-5 text-muted-foreground">Diese Idee weicht von deinem Wunsch ab und passt zum aktuellen Lernstoff. Sie ist optional und wird nur mit deiner Auswahl übernommen.</p>}
+        </div>
+      </div>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-foreground">{rows.map((row, index) => <li key={`${index}-${row}`}>{row}</li>)}</ul>
       <p className="mt-2 text-[11px] leading-4 text-muted-foreground">{proposal.proposalType === 'alternative' ? 'Ohne deine Auswahl ändert sich nichts.' : 'Prüfe die Änderungen. Gespeichert werden sie erst nach deiner Bestätigung.'} Fragen mit Übungsverlauf und Lernschritte mit Fortschritt sind vor dem Löschen geschützt.</p>
       <div className="mt-3 flex flex-wrap gap-2"><Button variant="primary" size="sm" disabled={busy} onClick={() => void applyProposal()}><Check className="size-3.5" aria-hidden="true" /> {proposal.proposalType === 'alternative' ? 'Alternative übernehmen' : 'Änderungen bestätigen'}</Button><Button variant="outline" size="sm" disabled={busy} onClick={() => setProposal(null)}><X className="size-3.5" aria-hidden="true" /> {proposal.proposalType === 'alternative' ? 'Alternative verwerfen' : 'Verwerfen'}</Button></div>
-    </div>}
+    </section>}
     {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
     <form onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const text = input.trim(); if (!text || busy || proposal) return; if (isDemoMode) void sendMessage(text); else setPendingMessage(text) }} className="grid gap-2">
       <Textarea id="plan-chat-input" value={input} onChange={(event) => setInput(event.target.value)} rows={2} disabled={busy || Boolean(proposal)} className="min-h-16 resize-y rounded-xl text-sm" aria-label="Nachricht an den Lernpartner" placeholder="Lernschritt oder Frage ergänzen, ändern oder entfernen…" />

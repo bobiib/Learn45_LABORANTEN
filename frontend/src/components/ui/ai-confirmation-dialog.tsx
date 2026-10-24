@@ -11,7 +11,7 @@ type AIConfirmationDialogProps = {
   onCancel: () => void
 }
 
-export function AIConfirmationDialog({ open, title, description, details, confirmLabel = 'Send to Gemini', onConfirm, onCancel }: AIConfirmationDialogProps) {
+export function AIConfirmationDialog({ open, title, description, details, confirmLabel = 'An Gemini senden', onConfirm, onCancel }: AIConfirmationDialogProps) {
   return <Dialog.Root open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onCancel() }}>
     <Dialog.Portal>
       <Dialog.Backdrop className="fixed inset-0 z-[200] bg-foreground/45 backdrop-blur-[2px]" />

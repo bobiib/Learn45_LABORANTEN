@@ -26,7 +26,8 @@ export const practiceApi = {
       .slice(0, 12000)
     const payload = {
       questionId: input.questionId,
-      answer: answer || (attachment ? `Submitted work: ${attachment.name}` : 'Submitted selected answer.'),
+      answer: answer || (attachment ? `Eingereichte Arbeit: ${attachment.name}` : 'Ausgewählte Antwort eingereicht.'),
+      selectedOptionIds: input.selectedOptions ?? [],
       hintsUsed: input.hintsUsed,
       tutorUsed: input.tutorUsed || input.supportUsed || input.theoryUsed || input.learningMode === 'coach',
       difficulty: input.difficulty,

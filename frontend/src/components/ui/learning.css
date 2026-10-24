@@ -32,6 +32,9 @@
 .learn-meta > span { display: inline-flex; align-items: center; gap: 5px; }
 .learn-title { font-size: clamp(27px, 2.35vw, 34px); font-weight: 600; letter-spacing: -.04em; line-height: 1.2; max-width: 650px; text-wrap: balance; margin: 12px 0 25px; }
 .learn-prompt { font-size: 14px; line-height: 1.8; max-width: 660px; color: var(--foreground); }
+.learn-guided-task { margin: 18px 0; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--learn-quiet); }
+.learn-guided-task strong { display: block; color: var(--foreground); font-size: 12px; font-weight: 600; }
+.learn-guided-task p { margin-top: 6px; color: var(--muted-foreground); font-size: 12px; line-height: 1.7; }
 .learn-mode-switch { display: inline-flex; gap: 3px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); }
 .learn-mode-switch [data-slot=button] { height: 32px; padding: 0 11px; border-radius: 8px; font-size: 11px; gap: 7px; }
 .learn-disclosure[data-slot=button] { padding-inline: 7px; font-size: 11px; gap: 5px; }
