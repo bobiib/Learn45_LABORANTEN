@@ -16,18 +16,16 @@ import { Progress } from '@/components/ui/progress'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ErrorNotice, LoadingCard, LoadingInline, SavedNotice } from '@/components/feedback'
 import { AIChatPanel } from '@/components/ai-chat'
-import { QuestionWorkspace } from '@/components/question-workspace'
-import { ReviewWorkspace } from '@/components/review-workspace'
+import { LearningSession } from '@/components/learning-session'
 import { getStoredTopic, isDemoMode, learningApi, saveStoredTopic } from '@/lib/api'
 import { bloomStages, initialDashboard, initialTopic, refreshEligibility } from '@/lib/fixtures'
 import { readLearnerContext, writeLearnerContext } from '@/lib/storage'
-import type { AnswerSubmission, BloomStage, ChatMessage, DashboardData, LearningQuestion, ReviewResult, Topic } from '@/lib/types'
+import type { ChatMessage, DashboardData, LearningQuestion, Topic } from '@/lib/types'
 
 const LearningGraph = lazy(() => import('@/components/learning-graph'))
 const StageFilter = lazy(() => import('@/components/stage-filter'))
 
-type Page = 'dashboard' | 'topic' | 'question' | 'review'
-type Difficulty = NonNullable<AnswerSubmission['difficulty']>
+type Page = 'dashboard' | 'topic' | 'question'
 
 const pageVariants: Variants = {
   initial: { opacity: 0, y: 8 },
@@ -43,9 +41,6 @@ function App() {
   const [topic, setTopic] = useState<Topic>(initialTopic)
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [activeQuestion, setActiveQuestion] = useState<LearningQuestion>(initialTopic.questions[0])
-  const [review, setReview] = useState<ReviewResult | null>(null)
-  const [reviewError, setReviewError] = useState('')
-  const [ratingSaving, setRatingSaving] = useState(false)
   const [busy, setBusy] = useState(false)
   const [topicLoading, setTopicLoading] = useState(false)
   const [uploadingSource, setUploadingSource] = useState(false)
@@ -56,11 +51,6 @@ function App() {
   const [setupDone, setSetupDone] = useState(false)
   const [planChatOpen, setPlanChatOpen] = useState(false)
   const [setupMessages, setSetupMessages] = useState<ChatMessage[]>(defaultSetupMessages)
-  const [hintsUsed, setHintsUsed] = useState(0)
-  const [hintsOpen, setHintsOpen] = useState(false)
-  const [tutorMessages, setTutorMessages] = useState<ChatMessage[]>([{ id: 'tutor-intro', role: 'assistant', text: 'Ich helfe dir beim Nachdenken, ohne die Antwort vorwegzunehmen. Welcher Teil ist noch unklar?' }])
-  const [answer, setAnswer] = useState('')
-  const [difficulty, setDifficulty] = useState<Difficulty | null>(null)
   const [questionFilters, setQuestionFilters] = useState({ short: false, partner: false, stage: 'All stages' })
   const [search, setSearch] = useState('')
   const [contextDraft, setContextDraft] = useState(topic.context)
@@ -71,7 +61,6 @@ function App() {
   const [sourceName, setSourceName] = useState('')
   const [showAllQuestions, setShowAllQuestions] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const answerRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const scrollToTop = useCallback(() => {
@@ -117,7 +106,10 @@ function App() {
           if (!key?.startsWith('learn45.topic.')) continue
           try {
             const stored = window.localStorage.getItem(key)
-            if (stored) storedTopics.push(JSON.parse(stored) as Topic)
+            if (stored) {
+              const parsed = JSON.parse(stored) as Partial<Topic> | null
+              if (parsed && typeof parsed.id === 'string' && Array.isArray(parsed.nodes) && Array.isArray(parsed.questions)) storedTopics.push(parsed as Topic)
+            }
           } catch { /* Ignore an invalid local cache entry and keep loading the rest. */ }
         }
       }
@@ -249,60 +241,8 @@ function App() {
 
   function startQuestion(question: LearningQuestion) {
     setActiveQuestion(question)
-    setAnswer('')
-    setHintsUsed(0)
-    setHintsOpen(false)
-    setTutorMessages([{ id: 'tutor-intro', role: 'assistant', text: 'Ich helfe dir beim Nachdenken, ohne die Antwort vorwegzunehmen. Welcher Teil ist noch unklar?' }])
-    setReview(null)
-    setReviewError('')
-    setDifficulty(null)
     setPage('question')
     scrollToTop()
-  }
-
-  async function submitAnswer(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!answer.trim() || busy) return
-    setBusy(true)
-    setError('')
-    try {
-      const result = await learningApi.submitAnswer({ questionId: activeQuestion.id, answer, hintsUsed, tutorUsed: tutorMessages.some((message) => message.role === 'user'), difficulty: null })
-      setReview(result)
-      const updated = topic.nodes.map((node) => {
-        if (node.id !== activeQuestion.topicId || result.evidenceDelta === 0) return node
-        const stageCaps: Record<BloomStage, number> = { Remember: 25, Understand: 50, Apply: 75, Analyze: 100, Evaluate: 100, Create: 100 }
-        const progress = Math.max(node.progress, Math.min(stageCaps[activeQuestion.stage], node.progress + result.evidenceDelta))
-        return { ...node, progress, evidence: { ...node.evidence, [activeQuestion.stage]: Math.min(100, node.evidence[activeQuestion.stage] + result.evidenceDelta) } }
-      })
-      const progress = Math.max(topic.progress, Math.round(updated.reduce((sum, node) => sum + node.progress, 0) / updated.length))
-      updateTopic({ ...topic, nodes: updated, progress })
-      setDashboard((current) => ({ ...current, lastSession: { topicId: topic.id, title: topic.title, detail: activeQuestion.title, progress } }))
-      setPage('review')
-      scrollToTop()
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Your answer could not be submitted.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  function addHint() {
-    if (hintsUsed >= 3) return
-    setHintsUsed((count) => count + 1)
-    setHintsOpen(true)
-  }
-
-  async function recordDifficulty(value: Difficulty) {
-    setDifficulty(value)
-    setRatingSaving(true)
-    setReviewError('')
-    try {
-      await learningApi.rateDifficulty(activeQuestion.id, value)
-    } catch (cause) {
-      setReviewError(cause instanceof Error ? cause.message : 'Your rating could not be saved.')
-    } finally {
-      setRatingSaving(false)
-    }
   }
 
   const visibleQuestions = useMemo(() => {
@@ -340,15 +280,11 @@ function App() {
             startQuestion(nextQuestion)
           }} /></>}
           {page === 'topic' && (topicLoading ? <LoadingCard title="Lernraum wird geöffnet" detail="Notizen, Fortschritt und Lernpfad werden geladen …" /> : <TopicPage topic={topic} uploading={uploadingSource} setupMode={setupMode && !setupDone} planChatOpen={planChatOpen} setupMessages={setupMessages} setupError={topicError} selectedNode={selectedNode} selectedTopicNode={selectedTopicNode} questions={visibleQuestions} questionFilters={questionFilters} search={search} context={contextDraft} contextSaving={contextSaving} contextSaved={contextSaved} showAllQuestions={showAllQuestions} onBack={() => setPage('dashboard')} onUpload={(file) => void beginUpload(file, topic.id)} onSelectNode={setSelectedNode} onFilter={setQuestionFilters} onSearch={setSearch} onStartQuestion={startQuestion} onToggleAllQuestions={() => setShowAllQuestions((show) => !show)} onTopicUpdated={handleScopedTopic} onTogglePlanChat={() => setPlanChatOpen((open) => !open)} onSaveContext={saveContext} onContextChange={setContextDraft} onRenameStart={(id, name) => { setEditingSource(id); setSourceName(name) }} editingSource={editingSource} sourceName={sourceName} onSourceNameChange={setSourceName} onRenameSource={(id) => void renameSource(id)} onCancelRename={() => setEditingSource(null)} onDeleteSource={(id) => void deleteSource(id)} sourceBusyId={sourceBusyId} onBackToDashboard={() => setPage('dashboard')} onRetry={() => void openTopic(topic.id, setupMode)} />)}
-          {page === 'question' && <QuestionWorkspace topic={topic} question={activeQuestion} answer={answer} hintsUsed={hintsUsed} hintsOpen={hintsOpen} tutorEnabled={topic.context.tutorEnabled} tutorMessages={tutorMessages} busy={busy} error={error} answerRef={answerRef} onBack={() => setPage('topic')} onAnswer={setAnswer} onSubmit={submitAnswer} onHint={addHint} onToggleHints={() => setHintsOpen((open) => !open)} onTutorMessages={setTutorMessages} />}
-          {page === 'review' && review && <ReviewWorkspace topic={topic} question={activeQuestion} answer={answer} review={review} difficulty={difficulty} ratingSaving={ratingSaving} error={reviewError} tutorMessages={tutorMessages} onTutorMessages={setTutorMessages} onDifficulty={(value) => void recordDifficulty(value)} onContinue={() => {
-            const suggested = topic.questions.find((question) => question.id === review.nextQuestionId) ?? topic.questions.find((question) => question.id !== activeQuestion.id) ?? activeQuestion
-            startQuestion(suggested)
-          }} onTopic={() => setPage('topic')} onDashboard={() => setPage('dashboard')} />}
+          {page === 'question' && <LearningSession key={`${topic.id}-${activeQuestion.id}`} topic={topic} question={activeQuestion} onBack={() => setPage('topic')} onHome={() => setPage('dashboard')} onProgress={(next) => { updateTopic(next); setDashboard((current) => ({ ...current, lastSession: { topicId: next.id, title: next.title, detail: activeQuestion.title, progress: next.progress } })) }} />}
         </motion.div>
       </AnimatePresence>}
     </main>
-    <footer className="mx-auto max-w-[1440px] px-4 pb-8 text-center text-xs tracking-wide text-muted-foreground sm:px-6 lg:px-10">CHALLENGE <span className="mx-2 text-border">→</span> ACTION <span className="mx-2 text-border">→</span> FEEDBACK <span className="mx-2 text-border">→</span> ADAPTATION <span className="mx-2 text-border">→</span> PROGRESS</footer>
+    <footer className="mx-auto max-w-[1440px] px-4 pb-8 text-center text-xs tracking-wide text-muted-foreground sm:px-6 lg:px-10">AUFGABE <span className="mx-2 text-border">→</span> VERSUCH <span className="mx-2 text-border">→</span> RÜCKMELDUNG <span className="mx-2 text-border">→</span> ANPASSUNG <span className="mx-2 text-border">→</span> FORTSCHRITT</footer>
   </div>
 }
 

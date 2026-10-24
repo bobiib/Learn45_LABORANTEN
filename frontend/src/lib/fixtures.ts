@@ -39,11 +39,21 @@ export const initialTopic: Topic = {
   ],
   context: {
     examDate: '2026-11-02',
-    timeAvailable: 'Etwa 20 Minuten pro Tag',
+    timeAvailable: '15 Minuten heute',
     preferredLength: 'Short',
     tutorEnabled: true,
     focus: 'Prägnante, umsetzbare Projektupdates vorbereiten',
   },
+}
+
+export const pythonTopic: Topic = {
+  id: 'python-game-workshop', title: 'Mit Python etwas Eigenes bauen', subject: 'Python-Werkstatt',
+  description: 'Verbinde Schleifen, Zustände und Bedingungen in einem kleinen Spiel für zwei Personen.',
+  updatedLabel: 'Neue Projektübung', progress: 0,
+  sources: [{ id: 'python-brief', name: 'Tic-Tac-Toe · Projektauftrag', kind: 'Übung', sizeLabel: 'Ein Projekt', addedLabel: 'Für diese Werkstatt' }],
+  nodes: [{ id: 'python-game', label: 'Ein Terminalspiel gestalten', description: 'Spielzustand, Eingaben und Spielende in einem Programm verbinden.', prerequisites: [], progress: 0, eligible: true, evidence: emptyEvidence() }],
+  questions: [{ id: 'q-python-create', topicId: 'python-game', title: 'Ein kleines Spiel. Deine Regeln.', prompt: 'Entwickle Tic-Tac-Toe für zwei Personen im Python-Terminal. Lade deinen Code hoch und erläutere deine Testfälle.', stage: 'Create', mode: 'Solo', duration: '10 Min.', status: 'recommended' }],
+  context: { examDate: '', timeAvailable: '15 Minuten heute', preferredLength: 'Balanced', tutorEnabled: true, focus: 'Ein eigenes Terminalspiel entwickeln und testen' },
 }
 
 export const initialDashboard: DashboardData = {
@@ -52,7 +62,7 @@ export const initialDashboard: DashboardData = {
   studyMinutes: 85,
   weeklyGoalMinutes: 120,
   completedSessions: 12,
-  topics: [initialTopic],
+  topics: [initialTopic, pythonTopic],
   lastSession: { topicId: initialTopic.id, title: 'Klare KI-Prompts schreiben', detail: 'Frage 2 · Qualitätskriterien festlegen', progress: 42 },
 }
 

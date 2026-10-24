@@ -1,5 +1,6 @@
-import { initialDashboard, initialTopic, createTopicFromFile, refreshEligibility } from './fixtures'
+import { initialDashboard, createTopicFromFile, refreshEligibility } from './fixtures'
 import type { AnswerSubmission, ChatMessage, DashboardData, ReviewResult, SetupResult, Topic } from './types'
+import { evaluatePractice } from './learning-engine'
 
 /**
  * Frontend contract for the learning backend. UI components call this interface
@@ -51,7 +52,8 @@ const demoApi: LearningApi = {
     await pause(signal, 360)
     const cached = window.localStorage.getItem(`learn45.topic.${topicId}`)
     if (cached) return JSON.parse(cached) as Topic
-    if (topicId === initialTopic.id) return structuredClone(initialTopic)
+    const seeded = initialDashboard.topics.find((topic) => topic.id === topicId)
+    if (seeded) return structuredClone(seeded)
     throw new ApiError('We could not find this learning topic.', 404)
   },
   async uploadSource(file, topicId, signal) {
@@ -95,41 +97,7 @@ const demoApi: LearningApi = {
   },
   async submitAnswer(input, signal) {
     await pause(signal, 1150)
-    const answer = input.answer.toLowerCase()
-    const mentionsOutcome = /leser|leserin|projektleitung|zielgruppe|handlung|aktion|entscheidung|nächster schritt|verantwort|kriter|enthalt/i.test(answer)
-    const detailed = answer.trim().split(/\s+/).length >= 12
-    const correctness = mentionsOutcome && detailed ? 'strong' : mentionsOutcome || detailed ? 'partial' : 'incorrect'
-    const hintPenalty = input.hintsUsed > 0 || input.tutorUsed
-    if (correctness === 'strong') return {
-      correctness,
-      headline: 'Ein klarer Auftrag mit erkennbarem Ziel',
-      feedback: 'Du hast eine konkrete Zielgruppe oder ein Ergebnis benannt und der KI genug Orientierung für eine umsetzbare Zusammenfassung gegeben. Prüfe als Nächstes, ob sich die verlangten Details an den Notizen überprüfen lassen.',
-      evidenceLabel: hintPenalty ? 'Starke Evidenz · mit Coaching' : 'Starke selbstständige Evidenz',
-      evidenceDelta: hintPenalty ? 8 : 14,
-      nextActivity: 'Erfolgskriterien überprüfbar machen',
-      nextReason: 'Dein Prompt hat eine klare Zielgruppe. Im nächsten Schritt legst du fest, welche Belege erscheinen müssen, damit Lea die Zusammenfassung zuverlässig beurteilen kann.',
-      nextQuestionId: input.questionId === 'q-criteria' ? 'q-revise' : 'q-criteria',
-    }
-    if (correctness === 'partial') return {
-      correctness,
-      headline: 'Ein Teil deines Prompts ist schon klar',
-      feedback: 'Hier steckt bereits ein hilfreiches Detail. Ergänze die fehlende Zielgruppe, das Ergebnis oder ein überprüfbares Kriterium und vergleiche den überarbeiteten Prompt danach mit den Ausgangsnotizen.',
-      evidenceLabel: hintPenalty ? 'Teilweise Evidenz · mit Coaching' : 'Teilweise selbstständige Evidenz',
-      evidenceDelta: hintPenalty ? 3 : 6,
-      nextActivity: 'Ein konkretes Qualitätskriterium ergänzen',
-      nextReason: 'Dieser Versuch zeigt ein Teilverständnis. Eine weitere konkrete Anforderung macht die nächste Übung passend und greifbar.',
-      nextQuestionId: 'q-criteria',
-    }
-    return {
-      correctness,
-      headline: 'Lass uns das Ziel greifbarer machen',
-      feedback: 'Deine Antwort nennt noch keine lesende Person, kein Ergebnis und keine Anforderung. Überlege, wer die Zusammenfassung nutzt und was diese Person damit tun soll; versuche es anschliessend mit etwas mehr Detail.',
-      evidenceLabel: 'Übungsversuch gespeichert · Fortschritt unverändert',
-      evidenceDelta: 0,
-      nextActivity: 'Eine kürzere Frage zur Zielgruppe beantworten',
-      nextReason: 'Dieser Versuch zeigt, dass die Zielgruppe noch nicht klar genug ist. Ein kleinerer Schritt hilft, bevor du zum vollständigen Prompt zurückkehrst.',
-      nextQuestionId: 'q-goal',
-    }
+    return evaluatePractice(input)
   },
   async sendTutorMessage(_questionId, message, signal) {
     await pause(signal, 800)
@@ -198,7 +166,17 @@ const backendApi: LearningApi = {
   deleteSource: (topicId, sourceId, signal) => request(`/topics/${encodeURIComponent(topicId)}/sources/${encodeURIComponent(sourceId)}`, { method: 'DELETE' }, signal),
   scopeTopic: (id, message, history, signal) => request(`/topics/${encodeURIComponent(id)}/scope`, { method: 'POST', body: JSON.stringify({ message, history }) }, signal),
   updateContext: (id, context, signal) => request(`/topics/${encodeURIComponent(id)}/context`, { method: 'PATCH', body: JSON.stringify(context) }, signal),
-  submitAnswer: (input, signal) => request('/questions/answer', { method: 'POST', body: JSON.stringify(input) }, signal),
+  submitAnswer: (input, signal) => {
+    const { attachment, ...payloadWithText } = input
+    const payload = { ...payloadWithText, attachmentText: undefined }
+    if (attachment) {
+      const body = new FormData()
+      body.append('file', attachment)
+      body.append('submission', JSON.stringify(payload))
+      return request('/questions/answer', { method: 'POST', body }, signal)
+    }
+    return request('/questions/answer', { method: 'POST', body: JSON.stringify(payload) }, signal)
+  },
   async rateDifficulty(questionId, difficulty, signal) {
     await request(`/questions/${encodeURIComponent(questionId)}/difficulty`, { method: 'PATCH', body: JSON.stringify({ difficulty }) }, signal)
   },

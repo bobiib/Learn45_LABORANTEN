@@ -1,67 +1,58 @@
-import { ArrowLeft, ArrowRight, ArrowUpRight, CheckCircle2, Lightbulb, MessageCircle } from 'lucide-react'
-import { AIChatPanel } from '@/components/ai-chat'
-import { ErrorNotice, LoadingInline } from '@/components/feedback'
+import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Circle, FileText, Lightbulb, RotateCcw, UserRound, UsersRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import type { AnswerSubmission, ChatMessage, LearningQuestion, ReviewResult, Topic } from '@/lib/types'
-
-type Difficulty = NonNullable<AnswerSubmission['difficulty']>
+import { BloomIndicator, LearningPopover, LearningReveal, LearningSurface } from '@/components/ui/learning'
+import { bloomLabels } from '@/lib/learning-engine'
+import type { AnswerSubmission, LearningActivity, LearningMode, PracticeAttempt, ReviewResult } from '@/lib/types'
+import type { AnswerDraft } from './learning-answer'
 
 type ReviewWorkspaceProps = {
-  topic: Topic
-  question: LearningQuestion
-  answer: string
+  activity: LearningActivity
+  draft: AnswerDraft
   review: ReviewResult
-  difficulty: Difficulty | null
+  mode: LearningMode
+  supported: boolean
+  attempts: PracticeAttempt[]
+  difficulty: AnswerSubmission['difficulty']
   ratingSaving: boolean
   error: string
-  tutorMessages: ChatMessage[]
-  onTutorMessages: (messages: ChatMessage[]) => void
-  onDifficulty: (value: Difficulty) => void
+  onDifficulty: (value: NonNullable<AnswerSubmission['difficulty']>) => void
+  next: LearningActivity
+  remainingMinutes: number
   onContinue: () => void
-  onTopic: () => void
-  onDashboard: () => void
+  onRetry: () => void
+  onCoach: () => void
+  onFinish: () => void
 }
 
-const bloomLabels = {
-  Remember: 'ERINNERN',
-  Understand: 'VERSTEHEN',
-  Apply: 'ANWENDEN',
-  Analyze: 'ANALYSIEREN',
-  Evaluate: 'BEURTEILEN',
-  Create: 'GESTALTEN',
-} as const
+export function ReviewWorkspace(props: ReviewWorkspaceProps) {
+  const { review, activity, draft, next, mode } = props
+  const strong = review.correctness === 'strong' && !review.assessmentPending
+  const timeFits = next.minutes + 2 <= props.remainingMinutes
+  const recent = props.attempts.filter((attempt) => attempt.skillId === activity.skillId && attempt.stage === activity.stage && !attempt.supported && attempt.mode !== 'together').slice(-8)
+  const evidence = review.assessmentPending ? 'Fachliche Prüfung steht aus' : mode === 'together' ? 'Gemeinsam erarbeitet' : props.supported ? 'Mit Unterstützung erarbeitet' : 'Selbstständig erarbeitet'
+  const hasEnoughEvidence = recent.length >= 5
+  const ratio = recent.length ? recent.filter((attempt) => attempt.correctness === 'strong').length / recent.length : 0
+  const challenge = !hasEnoughEvidence ? 'Dein Lernniveau wird noch eingeordnet.' : ratio > .9 ? 'Bereit für mehr Herausforderung.' : ratio < .8 ? 'Ein kleinerer Schritt passt jetzt besser.' : 'Die Herausforderung passt zu deinen Versuchen.'
 
-export function ReviewWorkspace({ topic, question, answer, review, difficulty, ratingSaving, error, tutorMessages, onTutorMessages, onDifficulty, onContinue, onTopic, onDashboard }: ReviewWorkspaceProps) {
-  const node = topic.nodes.find((item) => item.id === question.topicId)
-  const style = review.correctness === 'strong' ? 'review-good' : review.correctness === 'partial' ? 'review-partial' : 'review-try'
-  const Icon = review.correctness === 'strong' ? CheckCircle2 : review.correctness === 'partial' ? Lightbulb : ArrowUpRight
-  const levels: { key: Difficulty; label: string }[] = [{ key: 'too-easy', label: 'Zu leicht' }, { key: 'about-right', label: 'Genau richtig' }, { key: 'too-hard', label: 'Zu schwer' }]
-  const progress = node?.progress ?? topic.progress
-
-  return <div className="mx-auto max-w-[1320px] space-y-5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" onClick={onTopic}><span className="inline-flex items-center gap-2"><ArrowLeft className="size-4" aria-hidden="true" /> Zum Lernpfad</span></Button><span className="text-xs text-muted-foreground">AUSWERTUNG DER ÜBUNG</span></div>
-
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,.72fr)]">
-      <Card className="panel min-w-0 gap-0 overflow-hidden p-0">
-        <div className={`review-banner ${style} p-6 sm:p-8`}><div className="flex items-start gap-4"><span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-card/75"><Icon className="size-6" aria-hidden="true" /></span><div><p className="eyebrow">{bloomLabels[question.stage]} · FEEDBACK</p><h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{review.headline}</h1><p className="mt-3 max-w-2xl text-sm leading-7">{review.feedback}</p></div></div></div>
-
-        <div className="space-y-7 p-6 sm:p-8">
-          <section><p className="eyebrow">DEIN VERSUCH</p><p className="mt-2 text-sm leading-6 text-muted-foreground">{question.prompt}</p><div className="mt-3 rounded-2xl bg-muted/70 p-4 text-sm leading-7 whitespace-pre-wrap">{answer}</div></section>
-
-          <section><p className="eyebrow">LERNFORTSCHRITT</p><h2 className="mt-1 text-lg font-semibold">Dieser Versuch zählt</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Der Fortschritt zeigt die Qualität deiner Antwort und wie viel Unterstützung du genutzt hast. Er hilft dem Agenten, die nächste Übung sinnvoll zu wählen.</p><div className="mt-5 rounded-2xl bg-muted/70 p-4"><div className="flex items-center justify-between gap-3"><span className="text-sm font-medium">{review.evidenceLabel}</span><span className="text-sm font-semibold tabular-nums">{review.evidenceDelta > 0 ? `+${review.evidenceDelta}` : '±0'} Evidenz</span></div><div className="mt-4 flex items-center justify-between gap-3 text-xs"><span className="text-muted-foreground">{node?.label ?? 'Thema'} Fortschritt</span><span className="font-semibold tabular-nums">{progress}%</span></div><Progress value={progress} aria-label={`${node?.label ?? 'Thema'} Fortschritt`} className="mt-2" /></div></section>
-
-          <section><p className="text-sm font-semibold">Wie hat sich diese Aufgabe angefühlt?</p><p className="mt-1 text-xs text-muted-foreground">Deine Einschätzung hilft, den nächsten Schritt anzupassen – ohne Punktedruck.</p><div className="mt-3 flex flex-wrap gap-2">{levels.map((level) => <Button key={level.key} variant={difficulty === level.key ? 'secondary' : 'outline'} disabled={ratingSaving} onClick={() => onDifficulty(level.key)}>{level.label}</Button>)}</div>{ratingSaving && <div className="mt-2"><LoadingInline label="Einschätzung wird gespeichert …" /></div>}{difficulty && !ratingSaving && !error && <p className="mt-2 text-xs text-primary" role="status">Danke — deine Einschätzung ist für diese Übung gespeichert.</p>}{error && <div className="mt-3"><ErrorNotice message={error} /></div>}</section>
-        </div>
-      </Card>
-
-      <aside className="space-y-4 lg:sticky lg:top-24">
-        <Card className="panel gap-0 bg-accent/50"><p className="eyebrow text-primary">EMPFOHLENER NÄCHSTER SCHRITT</p><span className="mt-4 flex size-10 items-center justify-center rounded-xl bg-card text-primary"><ArrowUpRight className="size-5" aria-hidden="true" /></span><h2 className="mt-4 text-lg font-semibold">{review.nextActivity}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{review.nextReason}</p><div className="mt-5 rounded-xl bg-card/75 p-3 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Warum jetzt: </span>{review.correctness === 'incorrect' ? 'Ein kleinerer Schritt klärt zuerst den unsicheren Teil.' : `Deine Arbeit an «${node?.label ?? question.title}» macht diese nächste Herausforderung sinnvoll.`}</div><div className="mt-5 space-y-2"><Button variant="primary" onClick={onContinue}><span className="inline-flex items-center gap-2">Nächsten Schritt starten <ArrowRight className="size-4" aria-hidden="true" /></span></Button><div><Button variant="ghost" onClick={onDashboard}>Zum Dashboard</Button></div></div></Card>
-
-        <div className="rounded-2xl border border-border bg-accent/35 p-4"><div className="flex items-start gap-3"><span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-card text-primary"><MessageCircle className="size-4" aria-hidden="true" /></span><div><p className="text-sm font-semibold">Feedback gemeinsam verstehen</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Frag den KI-Coach, was hinter dem Feedback steckt. Er erklärt den nächsten Schritt, ohne ihn für dich zu lösen.</p></div></div></div>
-        <AIChatPanel kind="tutor" chatId={`review-coach-${question.id}`} questionId={question.id} initialMessages={tutorMessages} title="KI-Feedback-Coach" detail="Feedback verstehen und gezielt verbessern" onMessagesChange={onTutorMessages} />
-      </aside>
+  return <LearningReveal><LearningSurface>
+    <div className="learn-review-result">
+      <div className="learn-review-heading"><span className="learn-result-icon">{strong ? <Check className="size-4" /> : <Lightbulb className="size-4" />}</span><span>{review.assessmentPending ? 'ARBEIT FESTGEHALTEN' : strong ? 'GUT WEITERGEDACHT' : 'DEIN NÄCHSTER ANSATZ'}</span></div>
+      <div className="learn-meta"><BloomIndicator stage={activity.stage} /><span>{activity.title}</span></div>
+      <h1 className="learn-title">{review.headline}</h1>
+      <p className="learn-review-copy">{review.feedback}</p>
     </div>
-  </div>
+
+    {!!review.criteria?.length && <section className="learn-review-section"><div className="learn-section-heading"><h2>{review.assessmentPending ? 'Im Text erkennbar · noch kein Funktionstest' : 'Das zeigt dein Versuch'}</h2><LearningPopover label="Zur Auswertung" title="Transparente Rückmeldung"><p>Die Demo prüft deine Auswahl und sucht nach Merkmalen der vorab festgelegten Kriterien. Das ersetzt keine fachliche KI-Prüfung.</p><p>Eine richtige Auswahl mit passender Begründung ist ein anderes Lernsignal als ein Ergebnis mit Unterstützung. Beides wird getrennt festgehalten.</p></LearningPopover></div><ul className="learn-criteria">{review.criteria.map((criterion) => <li key={criterion.id} data-met={criterion.met}><span className="learn-criterion-icon">{criterion.met ? <CheckCircle2 className="size-4" /> : <Circle className="size-4" />}</span><div><span>{criterion.label}</span>{!criterion.met && <span className="learn-criterion-detail">{criterion.explanation}</span>}</div></li>)}</ul></section>}
+
+    <section className="learn-review-section"><div className="learn-section-heading"><h2>{mode === 'together' ? 'Euer gemeinsames Ergebnis' : 'Deine Antwort'}</h2><LearningPopover label="Aufgabe ansehen" title={activity.title}><p>{activity.prompt}</p><p>{activity.scenario.text}</p></LearningPopover></div><div className="learn-answer-review">{draft.selected.map((id) => <p key={id} className="mb-3">{activity.options?.find((option) => option.id === id)?.text}</p>)}{(draft.file || draft.fileName) && <p className="mb-3 flex items-center gap-2 text-primary"><FileText className="size-4" /> {draft.file?.name ?? `${draft.fileName} · erneut auswählen`}</p>}{draft.text}</div></section>
+
+    <section className="learn-review-section"><div className="learn-evidence-header"><span className="learn-evidence-label">{mode === 'together' ? <UsersRound className="size-4" /> : <UserRound className="size-4" />}{evidence}</span><LearningPopover label="Deine Lernzone" title="Passend gefordert statt perfekt"><p>Wir orientieren uns an einer Lernzone, in der die meisten eigenen Versuche gelingen und einzelne Fehler neue Lerngelegenheiten bieten.</p><p>Etwa 85 % erfolgreiche Versuche sind eine Arbeitshypothese für die Anpassung, keine Note und kein wissenschaftlich gesicherter Grenzwert für jede Aufgabe.</p><p>Wir betrachten mehrere vergleichbare, eigenständige Versuche. Bei wenigen Daten zeigen wir keine scheinbar genaue Erfolgswahrscheinlichkeit.</p><p>{recent.length} eigenständige Versuche zu diesem Teilziel in dieser Sitzung.</p></LearningPopover></div><p className="learn-evidence-note">{review.assessmentPending ? 'Diese Arbeit verändert deinen Kompetenzstand erst nach einer fachlichen Prüfung.' : mode === 'together' || props.supported ? 'Der nächste eigene Versuch an einem anderen Beispiel zeigt, was du selbst anwenden kannst.' : strong ? 'Du hast die Kriterien in diesem Versuch selbst aufgegriffen. Ein neuer Fall prüft den Transfer.' : 'Ein Versuch zeigt, wo wir ansetzen können. Ein einzelner Fehler bestimmt nicht deinen Lernstand.'}</p><p className="learn-evidence-note">{challenge}</p>
+      <div className="mt-5"><h2 className="text-xs font-semibold">Wie war die Herausforderung für dich?</h2><div className="learn-rating" role="group" aria-label="Schwierigkeit einschätzen">{([{ value: 'too-easy', label: 'Zu leicht' }, { value: 'about-right', label: 'Passt gerade' }, { value: 'too-hard', label: 'Zu schwer' }] as const).map(({ value, label }) => <Button key={value} variant={props.difficulty === value ? 'secondary' : 'outline'} aria-pressed={props.difficulty === value} disabled={props.ratingSaving} onClick={() => props.onDifficulty(value)}>{label}</Button>)}</div>{props.ratingSaving && <p className="learn-footnote" role="status">Wird gespeichert …</p>}{props.error && <p className="learn-inline-error" role="alert">{props.error}</p>}</div>
+    </section>
+
+    <section className="learn-next"><p className="learn-kicker learn-kicker-primary">DEIN NÄCHSTER SCHRITT <span className="mx-1">↗</span> {timeFits ? `${bloomLabels[next.stage]} · ca. ${next.minutes} Min.` : 'FÜR HEUTE ABRUNDEN'}</p><h2>{timeFits ? review.assessmentPending ? 'Deine Arbeit ist festgehalten.' : next.title : 'Ein guter Punkt zum Aufhören.'}</h2><p>{!timeFits ? 'Für einen vollständigen nächsten Versuch ist heute wenig Zeit. Halte deinen Lernstand fest und setze hier später wieder an.' : review.assessmentPending ? 'Bis zur fachlichen Prüfung kannst du an deiner Arbeit weiterarbeiten oder die Einheit abschliessen.' : strong ? 'Gleiche Idee, anderer Kontext. Probiere den nächsten Fall zuerst wieder ohne Unterstützung.' : 'Wir greifen einen einzelnen Gedanken heraus. Ein kurzer Impuls kann dir beim nächsten eigenen Versuch helfen.'}</p>
+      <LearningPopover label="Warum dieser Schritt?" title="So passt sich dein Lernweg an"><p>{next.rationale}</p><p>Die Aufgabe benötigt etwa {next.minutes} Minuten. Für heute bleiben ungefähr {props.remainingMinutes} Minuten, einschliesslich Abschluss.</p></LearningPopover>
+      <div className="learn-next-actions">{!timeFits || review.assessmentPending ? <Button variant="primary" onClick={props.onFinish}>Einheit abschliessen <ArrowRight className="size-4" /></Button> : <Button variant="primary" onClick={props.onContinue} disabled={props.ratingSaving}>Nächsten Schritt ausprobieren <ArrowRight className="size-4" /></Button>}{!strong && !review.assessmentPending && mode !== 'together' && <Button variant="outline" onClick={props.onCoach}>Mit dem Coach klären <ArrowUpRight className="size-3.5" /></Button>}<Button variant="ghost" onClick={props.onRetry}><RotateCcw className="size-3.5" /> Überarbeiten</Button></div>
+    </section>
+  </LearningSurface></LearningReveal>
 }
