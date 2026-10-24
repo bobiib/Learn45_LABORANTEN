@@ -186,6 +186,12 @@ export default function LearningGraph({
       </div>
       <ReactFlow
         key={`${narrow ? 'compact' : 'wide'}-${signature}`}
+        ariaLabelConfig={{
+          'controls.ariaLabel': 'Lernpfad-Steuerung',
+          'controls.zoomIn.ariaLabel': 'Vergrößern',
+          'controls.zoomOut.ariaLabel': 'Verkleinern',
+          'controls.fitView.ariaLabel': 'Ansicht anpassen',
+        }}
         nodes={nodes}
         edges={edges}
         fitView
