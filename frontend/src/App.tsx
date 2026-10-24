@@ -17,6 +17,7 @@ import { Progress } from '@/components/ui/progress'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ErrorNotice, LoadingCard, LoadingInline, SavedNotice } from '@/components/feedback'
+import { TopicPage as RedesignedTopicPage } from '@/components/topic-page'
 import { getDeletedTopicIds, getStoredTopic, isDemoMode, learningApi, saveStoredTopic } from '@/lib/api'
 import { bloomStages, initialDashboard, initialTopic, refreshEligibility } from '@/lib/fixtures'
 import { readLearnerContext, writeLearnerContext } from '@/lib/storage'
@@ -28,6 +29,11 @@ const AIChatPanel = lazy(() => import('@/components/ai-chat').then((module) => (
 
 type Page = 'dashboard' | 'topic' | 'question' | 'review'
 type Difficulty = NonNullable<AnswerSubmission['difficulty']>
+const learnerSkills = [
+  { nodeId: 'prompt-goal', title: 'Zielgruppe bestimmen', Icon: Target },
+  { nodeId: 'prompt-criteria', title: 'Qualitätskriterien setzen', Icon: CheckCircle2 },
+  { nodeId: 'prompt-revise', title: 'Antworten prüfen', Icon: BookOpen },
+] as const
 
 const pageVariants: Variants = {
   initial: { opacity: 0, y: 8 },
@@ -35,7 +41,7 @@ const pageVariants: Variants = {
   exit: { opacity: 0, y: -5, transition: { duration: 0.14, ease: 'easeIn' } },
 }
 
-const defaultSetupMessages: ChatMessage[] = [{ id: 'setup-welcome', role: 'assistant', text: 'Let’s shape a learning plan around your notes. What are you preparing for, and which parts would be most useful to focus on first?' }]
+const defaultSetupMessages: ChatMessage[] = [{ id: 'setup-welcome', role: 'assistant', text: 'Lass uns einen Lernpfad für deine Notizen gestalten. Was möchtest du erreichen und welche Inhalte sind dafür am wichtigsten?' }]
 
 function App() {
   const [page, setPage] = useState<Page>('dashboard')
@@ -368,7 +374,7 @@ function App() {
     <AppHeader learnerName={dashboard.learnerName} />
     <main className="mx-auto min-h-[calc(100vh-88px)] w-full max-w-[1440px] px-4 pb-16 pt-3 sm:px-6 sm:pt-4 lg:px-10 lg:pt-5">
       {error && <div className="mb-6"><ErrorNotice message={error} onRetry={() => { setError(''); if (page === 'dashboard') void loadHome() }} /></div>}
-      {appLoading ? <LoadingCard title="Opening Lea’s learning space" detail="Gathering topics and recent progress…" /> : <AnimatePresence mode="wait" initial={false}>
+      {appLoading ? <LoadingCard title="Opening Lea’s learning space" detail="Lernbereiche und Fortschritt werden geladen…" /> : <AnimatePresence mode="wait" initial={false}>
         <motion.div key={page} variants={pageVariants} initial="initial" animate="animate" exit="exit">
           {page === 'dashboard' && <>{uploadingSource && <div className="mb-5"><LoadingInline label="Preparing your learning material…" /></div>}<DashboardPage dashboard={dashboard} busy={busy} onOpenTopic={(id) => void openTopic(id)} onStartSuggested={(topicId, questionId, withTutor) => startDashboardMission(topicId, questionId, withTutor)} onDeleteTopic={deleteTopicFromDashboard} onUpload={() => fileInputRef.current?.click()} onSetWeeklyGoal={async (minutes) => {
             try {
@@ -385,7 +391,7 @@ function App() {
             const nextQuestion = nextTopic.questions.find((question) => question.title === dashboard.lastSession.detail) ?? nextTopic.questions.find((question) => question.topicId === 'prompt-criteria') ?? nextTopic.questions[0]
             startQuestion(nextQuestion)
           }} /></>}
-          {page === 'topic' && (topicLoading ? <LoadingCard title="Opening this learning space" detail="Loading notes, progress, and your plan…" /> : <TopicPage topic={topic} uploading={uploadingSource} setupMode={setupMode && !setupDone} planChatOpen={planChatOpen} setupMessages={setupMessages} setupError={topicError} selectedNode={selectedNode} selectedTopicNode={selectedTopicNode} questions={visibleQuestions} questionFilters={questionFilters} search={search} context={contextDraft} contextSaving={contextSaving} contextSaved={contextSaved} showAllQuestions={showAllQuestions} onBack={() => setPage('dashboard')} onUpload={(file) => void beginUpload(file, topic.id)} onSelectNode={setSelectedNode} onFilter={setQuestionFilters} onSearch={setSearch} onStartQuestion={startQuestion} onToggleAllQuestions={() => setShowAllQuestions((show) => !show)} onTopicUpdated={handleScopedTopic} onTogglePlanChat={() => setPlanChatOpen((open) => !open)} onSaveContext={saveContext} onContextChange={setContextDraft} onRenameStart={(id, name) => { setEditingSource(id); setSourceName(name) }} editingSource={editingSource} sourceName={sourceName} onSourceNameChange={setSourceName} onRenameSource={(id) => void renameSource(id)} onCancelRename={() => setEditingSource(null)} onDeleteSource={(id) => void deleteSource(id)} sourceBusyId={sourceBusyId} onBackToDashboard={() => setPage('dashboard')} onRetry={() => void openTopic(topic.id, setupMode)} />)}
+          {page === 'topic' && (topicLoading ? <LoadingCard title="Themenbereich wird geöffnet" detail="Lernmaterial, Fortschritt und Lernpfad werden geladen…" /> : <RedesignedTopicPage topic={topic} uploading={uploadingSource} setupMode={setupMode && !setupDone} planChatOpen={planChatOpen} setupMessages={setupMessages} setupError={topicError} selectedNode={selectedNode} selectedTopicNode={selectedTopicNode} questions={visibleQuestions} questionFilters={questionFilters} search={search} context={contextDraft} contextSaving={contextSaving} contextSaved={contextSaved} showAllQuestions={showAllQuestions} onBack={() => setPage('dashboard')} onUpload={(file) => void beginUpload(file, topic.id)} onSelectNode={setSelectedNode} onFilter={setQuestionFilters} onSearch={setSearch} onStartQuestion={startQuestion} onToggleAllQuestions={() => setShowAllQuestions((show) => !show)} onTopicUpdated={handleScopedTopic} onTogglePlanChat={() => setPlanChatOpen((open) => !open)} onSaveContext={saveContext} onContextChange={setContextDraft} onRenameStart={(id, name) => { setEditingSource(id); setSourceName(name) }} editingSource={editingSource} sourceName={sourceName} onSourceNameChange={setSourceName} onRenameSource={(id) => void renameSource(id)} onCancelRename={() => setEditingSource(null)} onDeleteSource={(id) => void deleteSource(id)} sourceBusyId={sourceBusyId} onBackToDashboard={() => setPage('dashboard')} onRetry={() => void openTopic(topic.id, setupMode)} />)}
           {page === 'question' && <QuestionPage topic={topic} question={activeQuestion} answer={answer} hintsUsed={hintsUsed} hintsOpen={hintsOpen} tutorOpen={tutorOpen && topic.context.tutorEnabled} tutorEnabled={topic.context.tutorEnabled} tutorMessages={tutorMessages} busy={busy} error={error} answerRef={answerRef} onBack={() => setPage('topic')} onAnswer={setAnswer} onSubmit={submitAnswer} onHint={addHint} onToggleHints={() => setHintsOpen((open) => !open)} onToggleTutor={() => setTutorOpen((open) => !open)} onTutorMessages={setTutorMessages} />}
           {page === 'review' && review && <ReviewPage topic={topic} question={activeQuestion} review={review} difficulty={difficulty} ratingSaving={ratingSaving} error={reviewError} tutorOpen={reviewTutorOpen} tutorMessages={tutorMessages} onToggleTutor={() => setReviewTutorOpen((open) => !open)} onTutorMessages={setTutorMessages} onDifficulty={(value) => void recordDifficulty(value)} onContinue={() => {
             const suggested = topic.questions.find((question) => question.id === review.nextQuestionId) ?? topic.questions.find((question) => question.id !== activeQuestion.id) ?? activeQuestion
@@ -438,6 +444,36 @@ function formatExamCountdown(date: string) {
   return remaining > 0 ? `Exam in ${remaining} days` : remaining === 0 ? 'Exam today' : 'Exam date passed'
 }
 
+function SkillProgressPanel({ topic, focusNodeId, compact = false }: { topic: Topic; focusNodeId?: string; compact?: boolean }) {
+  const reduceMotion = useReducedMotion()
+  const skills = learnerSkills.flatMap((skill) => {
+    const node = topic.nodes.find((item) => item.id === skill.nodeId)
+    return node ? [{ ...skill, node }] : []
+  })
+  if (!skills.length) return null
+
+  return <section className={'skill-progress-panel' + (compact ? ' skill-progress-panel--compact' : '')} aria-label="Skills im Aufbau">
+    <div className="skill-progress-heading">
+      <div><p className="eyebrow">DEINE SKILLS</p><p className="skill-progress-note">Übungsfortschritt, keine Kompetenzdiagnose</p></div>
+      {focusNodeId && <span className="skill-focus-label">Diese Runde</span>}
+    </div>
+    <ul className="skill-progress-grid">
+      {skills.map((skill, index) => {
+        const Icon = skill.Icon
+        const focused = focusNodeId === skill.nodeId
+        const status = focused ? 'In dieser Runde geübt' : skill.node.progress > 0 ? 'Schon geübt' : 'Als Nächstes'
+        return <motion.li key={skill.nodeId} className={'skill-progress-card' + (focused ? ' skill-progress-card--focus' : '')} aria-current={focused ? 'step' : undefined} initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : index * .07, duration: reduceMotion ? 0 : .28 }}>
+          <div className="skill-progress-card-header">
+            <span className="skill-progress-icon"><Icon className="size-4" aria-hidden="true" /></span>
+            <span className="skill-progress-copy"><span className="skill-progress-title">{skill.title}</span><span className="skill-progress-status">{status}</span></span>
+            <span className="skill-progress-value">{skill.node.progress}%</span>
+          </div>
+          <div className="skill-progress-track" role="progressbar" aria-label={'Übungsstand: ' + skill.title} aria-valuenow={skill.node.progress} aria-valuemin={0} aria-valuemax={100}><motion.span initial={reduceMotion ? false : { width: 0 }} animate={{ width: skill.node.progress + '%' }} transition={{ duration: reduceMotion ? 0 : .7, delay: reduceMotion ? 0 : index * .07, ease: 'easeOut' }} /></div>
+        </motion.li>
+      })}
+    </ul>
+  </section>
+}
 function DashboardPage({ dashboard, busy, onOpenTopic, onStartSuggested, onDeleteTopic, onUpload, onContinue, onSetWeeklyGoal }: { dashboard: DashboardData; busy: boolean; onOpenTopic: (id: string) => void; onStartSuggested: (topicId: string, questionId: string, withTutor: boolean) => void; onDeleteTopic: (id: string) => Promise<boolean>; onUpload: () => void; onContinue: () => void; onSetWeeklyGoal: (minutes: number) => Promise<boolean> }) {
   const reduceMotion = useReducedMotion()
   const [goalMenuOpen, setGoalMenuOpen] = useState(false)
@@ -574,6 +610,7 @@ function DashboardPage({ dashboard, busy, onOpenTopic, onStartSuggested, onDelet
               <div className="mission-progress-track"><motion.span initial={reduceMotion ? false : { width: 0 }} animate={{ width: `${suggestionTopic.progress}%` }} transition={{ duration: reduceMotion ? 0 : .9, delay: reduceMotion ? 0 : .2, ease: 'easeOut' }} /></div>
               <span className="mission-progress-value">{suggestionTopic.progress}% Übungsstand</span>
             </div>
+            <SkillProgressPanel topic={suggestionTopic} compact />
           </div>
           <aside className="mission-action-panel relative z-10 flex flex-col justify-center gap-3 p-5 sm:p-6">
             <div><p className="eyebrow text-primary">JETZT EMPFOHLEN · {coachingMinutes} MIN.</p><h4 className="mt-1 text-lg font-semibold">Mit Rückfragen klären</h4><p className="mt-1 text-sm leading-5 text-muted-foreground">Zielgruppe, Länge und Pflichtangaben festlegen.</p></div>
@@ -707,6 +744,7 @@ function ReviewPage({ topic, question, review, difficulty, ratingSaving, error, 
           <div className="mt-6"><p className="text-sm font-semibold">How did this question feel?</p><p className="mt-1 text-xs text-muted-foreground">Your rating helps tune the next step. No numeric target.</p><div className="mt-3 flex flex-wrap gap-2">{levels.map((level) => <Button key={level.key} variant={difficulty === level.key ? 'secondary' : 'outline'} disabled={ratingSaving} onClick={() => onDifficulty(level.key)}>{level.label}</Button>)}</div>{ratingSaving && <div className="mt-2"><LoadingInline label="Saving your rating…" /></div>}{difficulty && !ratingSaving && !error && <p className="mt-2 text-xs text-primary" role="status">Thanks — your rating is saved for this session.</p>}{error && <div className="mt-3"><ErrorNotice message={error} /></div>}</div>
         </div><aside className="rounded-2xl bg-accent/50 p-5"><p className="eyebrow text-primary">YOUR NEXT RECOMMENDATION</p><span className="mt-4 flex size-10 items-center justify-center rounded-xl bg-card text-primary"><ArrowUpRight className="size-5" aria-hidden="true" /></span><h2 className="mt-4 text-lg font-semibold">{review.nextActivity}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{review.nextReason}</p><div className="mt-5 rounded-xl bg-card/75 p-3 text-xs leading-5 text-muted-foreground"><span className="font-semibold text-foreground">Why now: </span>{review.correctness === 'incorrect' ? 'A smaller step can clarify the part that is still uncertain.' : `Your work on “${node?.label ?? question.title}” makes this a useful next challenge.`}</div><div className="mt-5 space-y-2"><Button variant="primary" onClick={onContinue}><span className="inline-flex items-center gap-2">Try the next step <ArrowRight className="size-4" aria-hidden="true" /></span></Button><div><Button variant="ghost" onClick={onDashboard}>Return to dashboard</Button></div></div></aside></div>
     </Card>
+    <SkillProgressPanel topic={topic} focusNodeId={question.topicId} />
     <Card className="panel gap-0"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold">Want to talk through the feedback?</p><p className="mt-1 text-xs text-muted-foreground">The tutor can help you understand the suggestion without writing the next answer for you.</p></div><Button variant={tutorOpen ? 'secondary' : 'outline'} onClick={onToggleTutor}><span className="inline-flex items-center gap-2"><MessageCircle className="size-4" aria-hidden="true" />{tutorOpen ? 'Close AI tutor' : 'Ask the AI tutor'}</span></Button></div>{tutorOpen && <div className="mt-4"><TutorPanel questionId={question.id} initialMessages={tutorMessages} onMessagesChange={onTutorMessages} title="AI feedback coach" detail="Explain the feedback and suggest how to improve" /></div>}</Card>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/60 p-4"><div><p className="text-sm font-medium">Keep this learning plan in view</p><p className="mt-1 text-xs text-muted-foreground">Review your sources, progress, and topic relationships.</p></div><Button variant="outline" onClick={onTopic}>Open topic plan</Button></div>
   </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { TextStreamChatTransport, type UIMessage } from 'ai'
 import { useChat } from '@ai-sdk/react'
-import { ArrowUp, Sparkles } from 'lucide-react'
+import { ArrowUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -18,9 +18,12 @@ type AIChatProps = {
   topicId?: string
   questionId?: string
   initialMessages: ChatMessage[]
+  eyebrow?: string
   title: string
   detail: string
   compact?: boolean
+  inputId?: string
+  placeholder?: string
   onMessagesChange?: (messages: ChatMessage[]) => void
   onTopicUpdated?: (topic: Topic) => void
 }
@@ -60,7 +63,20 @@ function streamResponse(text: string, signal?: AbortSignal) {
   return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
 }
 
-export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages, title, detail, compact = false, onMessagesChange, onTopicUpdated }: AIChatProps) {
+export function AIChatPanel({
+  kind,
+  chatId,
+  topicId,
+  questionId,
+  initialMessages,
+  title,
+  detail,
+  compact = false,
+  inputId,
+  placeholder,
+  onMessagesChange,
+  onTopicUpdated,
+}: AIChatProps) {
   const [input, setInput] = useState('')
   const [localError, setLocalError] = useState('')
   const initial = useMemo(() => toUiMessages(initialMessages), [chatId])
@@ -74,7 +90,7 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
       const messages = body.messages ?? []
       const lastUser = [...messages].reverse().find((message) => message.role === 'user')
       const text = lastUser?.parts.flatMap((part) => part.type === 'text' ? [part.text] : []).join('').trim() ?? ''
-      if (!text) return streamResponse('Tell me a little more so I can help.', init?.signal ?? undefined)
+      if (!text) return streamResponse('Erzähl mir noch etwas mehr, damit ich dir helfen kann.', init?.signal ?? undefined)
       try {
         if (kind === 'scope' && topicId) {
           const history = messages.flatMap((message) => {
@@ -89,9 +105,9 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
           const response = await learningApi.sendTutorMessage(questionId, text)
           return streamResponse(response.text, init?.signal ?? undefined)
         }
-        return streamResponse('The tutor is not connected to a question yet.', init?.signal ?? undefined)
+        return streamResponse('Der KI-Coach ist noch keiner Frage zugeordnet.', init?.signal ?? undefined)
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'The learning assistant is unavailable.'
+        const message = error instanceof Error ? error.message : 'Der Lerncoach ist gerade nicht verfügbar.'
         return new Response(message, { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
       }
     },
@@ -106,7 +122,7 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
       setLocalError('')
       if (kind === 'scope' && !isDemoMode && topicId) {
         void learningApi.getTopic(topicId).then((topic) => onTopicUpdated?.(topic)).catch((cause: unknown) => {
-          setLocalError(cause instanceof Error ? cause.message : 'The updated learning plan could not be loaded.')
+          setLocalError(cause instanceof Error ? cause.message : 'Der aktualisierte Lernpfad konnte nicht geladen werden.')
         })
       }
     },
@@ -118,17 +134,17 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
   }, [messages, onMessagesChange])
 
   return <Card className={`panel min-w-0 ${compact ? 'p-4' : ''}`}>
-    <div className="flex items-center gap-2">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"><Sparkles className="size-4" aria-hidden="true" /></span>
-      <div className="min-w-0"><h2 className="text-sm font-semibold">{title}</h2><p className="text-[10px] text-muted-foreground">{detail}</p></div>
+    <div className="min-w-0">
+      <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+      <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{detail}</p>
     </div>
-    <div className={`chat-transcript mt-4 space-y-3 overflow-y-auto ${compact ? 'max-h-56' : 'max-h-72'}`} aria-live="polite">
+    <div className={`chat-transcript mt-3.5 space-y-2.5 overflow-y-auto ${compact ? 'max-h-64' : 'max-h-72'}`} aria-live="polite">
       {messages.map((message) => <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-        <div className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
+        <div className={`max-w-[88%] whitespace-pre-wrap rounded-xl px-3.5 py-2 text-sm leading-6 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
           {message.parts.map((part, index) => part.type === 'text' ? <span key={`${message.id}-${index}`}>{part.text}</span> : null)}
         </div>
       </div>)}
-      {busy && <LoadingInline label={kind === 'scope' ? 'Updating your learning plan…' : 'Thinking through a hint…'} />}
+      {busy && <LoadingInline label={kind === 'scope' ? 'Lernpfad wird aktualisiert…' : 'Hinweis wird vorbereitet…'} />}
     </div>
     {(localError || error) && <p className="mt-3 text-xs text-destructive" role="alert">{localError || error?.message}</p>}
     <form onSubmit={(event) => {
@@ -138,13 +154,12 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
       setLocalError('')
       setInput('')
       void sendMessage({ text })
-    }} className="mt-4 flex items-end gap-2">
+    }} className="mt-3.5 flex items-end gap-2">
       {kind === 'scope'
-        ? <Textarea value={input} onChange={(event) => setInput(event.target.value)} rows={2} required disabled={busy} className="min-h-12 resize-none rounded-xl" aria-label="Tell the learning partner what to adjust" placeholder="Ask to focus on a topic, adjust the pace, or correct a learning fact…" />
-        : <Input value={input} onChange={(event) => setInput(event.target.value)} required disabled={busy} className="h-11 rounded-xl" aria-label="Ask the AI tutor" placeholder="What feels tricky?" />}
-      <Button variant="primary" type="submit" size="icon-lg" aria-label="Send message" disabled={busy || !input.trim()}><ArrowUp className="size-4" aria-hidden="true" /></Button>
+        ? <Textarea id={inputId} value={input} onChange={(event) => setInput(event.target.value)} rows={2} required disabled={busy} className="min-h-11 resize-none rounded-lg" aria-label="Sag dem Lerncoach, was du anpassen möchtest" placeholder={placeholder ?? 'Sag der KI, welche Themen du lernen, ergänzen oder entfernen möchtest…'} />
+        : <Input id={inputId} value={input} onChange={(event) => setInput(event.target.value)} required disabled={busy} className="h-10 rounded-lg" aria-label="Den KI-Coach fragen" placeholder={placeholder ?? 'Was ist gerade schwierig?'} />}
+      <Button variant="primary" type="submit" size="icon-lg" aria-label="Nachricht senden" disabled={busy || !input.trim()}><ArrowUp className="size-4" aria-hidden="true" /></Button>
     </form>
-    {kind === 'tutor' && <p className="mt-2 text-[10px] leading-4 text-muted-foreground">You stay in control. Close the tutor any time and answer independently.</p>}
-    {kind === 'scope' && <p className="mt-2 text-[10px] leading-5 text-muted-foreground">You can also edit the learning facts below. Responses are scripted locally until the FastAPI stream is connected.</p>}
+    {kind === 'tutor' && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">Du entscheidest: Schließe den KI-Coach jederzeit und übe selbstständig weiter.</p>}
   </Card>
 }

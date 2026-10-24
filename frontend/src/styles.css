@@ -129,6 +129,23 @@ body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: clip; backgro
 .mission-progress-value { color: var(--muted-foreground); font-size: .68rem; font-weight: 600; white-space: nowrap; }
 .mission-action-panel { border-left: 1px solid color-mix(in oklab, var(--primary) 20%, var(--border)); background: color-mix(in oklab, var(--primary) 6%, var(--card)); }
 @keyframes mission-sparkle { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 0%, transparent); } 50% { transform: scale(1.08); box-shadow: 0 0 0 5px color-mix(in oklab, var(--primary) 12%, transparent); } }
+.skill-progress-panel { margin-top: 1.25rem; border-top: 1px solid color-mix(in oklab, var(--primary) 18%, var(--border)); padding-top: 1rem; }
+.skill-progress-panel--compact { margin-top: 1rem; }
+.skill-progress-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem .8rem; }
+.skill-progress-note { margin-top: .2rem; color: var(--muted-foreground); font-size: .62rem; }
+.skill-focus-label { border-radius: 9999px; background: color-mix(in oklab, var(--primary) 14%, var(--card)); padding: .35rem .65rem; color: var(--primary-foreground); font-size: .62rem; font-weight: 650; }
+.skill-progress-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: .55rem; margin: .75rem 0 0; padding: 0; list-style: none; }
+.skill-progress-card { min-width: 0; border: 1px solid var(--border); border-radius: .9rem; background: color-mix(in oklab, var(--card) 84%, var(--muted)); padding: .65rem .7rem; }
+.skill-progress-card--focus { border-color: color-mix(in oklab, var(--primary) 58%, var(--border)); background: color-mix(in oklab, var(--primary) 10%, var(--card)); box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 9%, transparent); }
+.skill-progress-card-header { display: flex; min-width: 0; align-items: center; gap: .5rem; }
+.skill-progress-icon { display: grid; width: 1.7rem; height: 1.7rem; flex: 0 0 auto; place-items: center; border-radius: .6rem; background: color-mix(in oklab, var(--primary) 20%, var(--card)); color: var(--primary-foreground); }
+.skill-progress-copy { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; gap: .12rem; }
+.skill-progress-title { overflow: hidden; color: var(--foreground); font-size: .66rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.skill-progress-status { color: var(--muted-foreground); font-size: .58rem; }
+.skill-progress-value { color: var(--foreground); font-size: .66rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.skill-progress-track { height: .3rem; overflow: hidden; margin-top: .55rem; border-radius: 9999px; background: var(--muted); }
+.skill-progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+@media (min-width: 640px) { .skill-progress-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .topic-card { min-width: 0; }
 .topic-card-mark, .add-topic-mark { transition: transform .35s cubic-bezier(.2,.75,.25,1); }
 .topic-card:hover .topic-card-mark { transform: rotate(-8deg) scale(1.1); }
@@ -155,6 +172,24 @@ body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: clip; backgro
 .flow-shell .react-flow__controls-button:hover { background: var(--accent); }
 .flow-shell .react-flow__edge-path { stroke: var(--border); }
 .flow-shell .react-flow__attribution { display: none; }
+.flow-shell .react-flow__node-default {
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease, transform .18s ease;
+}
+.flow-shell .react-flow__node-default:hover,
+.flow-shell .react-flow__node-default:focus-within {
+  border-color: var(--primary) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px color-mix(in oklab, var(--primary) 18%, transparent) !important;
+}
+.flow-node-content { position: relative; display: flex; min-height: 118px; flex-direction: column; gap: 7px; white-space: normal; text-align: left; }
+.flow-node-status { font-size: 11.5px; }
+.flow-node-title { display: block; font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
+.flow-node-progress { margin-top: auto; padding-top: 6px; gap: 5px; font-size: 11.5px; font-weight: 500; }
+.flow-node-progress-track { height: 6.5px; }
+.flow-node-cta { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; padding-top: 7px; border-top: 1px dashed var(--border); color: var(--foreground); font-size: 12px; font-weight: 650; transition: color .18s ease, border-color .18s ease; }
+.flow-node-cta.is-selected, .flow-shell .react-flow__node-default:hover .flow-node-cta { border-top-color: color-mix(in oklab, var(--primary) 65%, var(--border)); color: var(--primary-foreground); }
+.flow-node-cta-icon { transition: transform .18s ease; }
+.flow-shell .react-flow__node-default:hover .flow-node-cta-icon { transform: translateY(2px); }
 .chat-transcript, .tutor-messages { scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
 .setup-aside { background-image: radial-gradient(circle at 95% 5%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 35%); }
 .context-card { align-self: start; }

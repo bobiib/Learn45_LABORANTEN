@@ -1,4 +1,4 @@
-import { initialDashboard, initialTopic, createTopicFromFile, refreshEligibility } from './fixtures'
+import { initialDashboard, initialTopic, buildScopedPlanFromMessage, createTopicFromFile, refreshEligibility } from './fixtures'
 import type { AnswerSubmission, ChatMessage, DashboardData, ReviewResult, SetupResult, Topic } from './types'
 
 /**
@@ -99,16 +99,13 @@ const demoApi: LearningApi = {
     window.localStorage.removeItem(`learn45.topic.${topicId}`)
     window.localStorage.removeItem(`learn45.topic.ready.${topicId}`)
   },
-  async scopeTopic(topicId, message, history, signal) {
-    await pause(signal, 950)
+  async scopeTopic(topicId, message, _history, signal) {
+    await pause(signal, 850)
     const topic = await this.getTopic(topicId, signal)
-    const narrowed = /exam|week|test|important|focus/i.test(message)
-    const assistantMessage = narrowed
-      ? 'Got it. I’ll focus on the parts most useful for your goal and keep each practice step short. I’ve prepared a sample learning path for this demo; you can change these details any time.'
-      : 'Thanks, that helps me understand what matters to you. Which outcome would make these notes most useful: remembering key ideas, explaining them, or applying them to a task?'
-    return { topic: { ...topic, description: message || topic.description }, assistantMessage }
-  },
-  async updateContext(_topicId, context, signal) {
+    const result = buildScopedPlanFromMessage(topic, message)
+    window.localStorage.setItem(`learn45.topic.${topicId}`, JSON.stringify(result.topic))
+    return result
+  },  async updateContext(_topicId, context, signal) {
     await pause(signal, 320)
     return context
   },
