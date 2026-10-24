@@ -6,6 +6,7 @@ import { QuestionWorkspace, type PairPhase } from './question-workspace'
 import { ReviewWorkspace } from './review-workspace'
 import { canSubmitActivity, emptyDraft, type AnswerDraft } from './learning-answer'
 import { Button } from './ui/button'
+import { AIConfirmationDialog } from './ui/ai-confirmation-dialog'
 import { LearningNavigation, LearningStart, LearningSteps, LearningSurface } from './ui/learning'
 import { activityForQuestion, fitActivityToBudget, nextActivity } from '@/lib/learning-engine'
 import { activityTime, pairLearners, pairRoles } from '@/lib/learning-content'
@@ -58,6 +59,7 @@ export function LearningSession({ topic, question, startWithCoach = false, onBac
   const [budget, setBudget] = useState(saved?.budget ?? 15)
   const [elapsed, setElapsed] = useState(saved?.elapsed ?? 0)
   const [busy, setBusy] = useState(false)
+  const [confirmSubmit, setConfirmSubmit] = useState(false)
   const [error, setError] = useState('')
   const [ratingSaving, setRatingSaving] = useState(false)
   const [difficulty, setDifficulty] = useState<AnswerSubmission['difficulty']>(saved?.difficulty ?? null)
@@ -157,13 +159,17 @@ export function LearningSession({ topic, question, startWithCoach = false, onBac
     setSecond(null)
   }
 
-  async function submit() {
+  async function submit(confirmed = false) {
     const testTurn = mode === 'together' && pairPhase === 'second' && activity.stage === 'Create'
     if (!(testTurn ? !!draft.text.trim() : canSubmitActivity(activity, draft)) || submitLock.current) return
     if (mode === 'together') {
       if (!partner.trim()) return
       if (pairPhase === 'first') { setFirst(draft); setDraft(emptyDraft()); changePairPhase('handoff'); return }
       if (pairPhase === 'second') { setSecond(draft); setDraft(emptyDraft()); changePairPhase('compare'); return }
+    }
+    if (!isDemoMode && !confirmed) {
+      setConfirmSubmit(true)
+      return
     }
     submitLock.current = true
     setBusy(true)
@@ -264,5 +270,14 @@ export function LearningSession({ topic, question, startWithCoach = false, onBac
         <aside ref={coachRef} className="learn-sidebar">{mode === 'together' && pairPhase === 'handoff' ? <LearningSurface className="learn-coach-pause"><UsersRound className="size-6" /><h2>Ein Moment für den Wechsel.</h2><p>Der Coach startet für die nächste Person mit einem neuen Gespräch.</p></LearningSurface> : <AIChatPanel key={`${activity.id}-${phase}-${mode === 'together' ? pairPhase : 'single'}`} kind="tutor" workspace chatId={`practice-${activity.id}-${phase}-${mode === 'together' ? pairPhase : 'single'}`} questionId={question.id} topicId={topic.id} initialMessages={messages} title="Lerncoach" detail="Gemeinsam weiterdenken" activity={activity} learnerAnswer={draft.text} turnContext={turnContext} review={phase === 'review' ? review : null} mode={mode} active={coachOpen && topic.context.tutorEnabled} onActivate={topic.context.tutorEnabled ? activateCoach : undefined} onSupport={phase === 'question' ? onSupport : undefined} onMessagesChange={onMessages} disabled={busy} />}{!topic.context.tutorEnabled && <p className="learn-coach-caption">KI-Coach im Lernkontext deaktiviert.</p>}{isDemoMode && <p className="learn-coach-caption">Demo · vorbereitete Lernimpulse</p>}</aside>
       </motion.div>}
     </AnimatePresence>
+    <AIConfirmationDialog
+      open={confirmSubmit}
+      title="Antwort zur KI-Prüfung senden?"
+      description="Gemini vergleicht deine Antwort mit der Lernfrage und den passenden Auszügen aus deinen Lernnotizen."
+      details="Gesendet werden deine Antwort oder Auswahl, die Frage, relevante Notiz-Auszüge, der Text aus einer angehängten Datei und genutzte Unterstützung wie Hinweise oder Coach. Lea speichert Lernversuch und Feedback, aber keine Coach-Chatverläufe."
+      confirmLabel="Zur Prüfung senden"
+      onCancel={() => setConfirmSubmit(false)}
+      onConfirm={() => { setConfirmSubmit(false); void submit(true) }}
+    />
   </div></MotionConfig>
 }

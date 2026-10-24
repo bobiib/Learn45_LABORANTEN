@@ -9,9 +9,9 @@ Hackathon prototype for an adaptive learning journey: solo practice, AI coaching
 - `@xyflow/react` for the visible learning journey
 - shadcn/ui source components, Tailwind theme tokens, and shared interaction states
 - Vercel AI SDK UI (`useChat` with `TextStreamChatTransport`) for streamed tutor and plan conversations
-- Python + FastAPI for the learning-agent API and model orchestration
+- Python + FastAPI, SQLModel/SQLite, and Google's Gemini API for the learning service
 
-The AI SDK UI runs in React and FastAPI remains the backend. The tutor and plan chats use the AI SDK text stream protocol, which a Python/FastAPI endpoint can return directly; a separate Node server is not required. Add a model provider in the backend when the team chooses one. The demo adapter streams scripted replies locally until those endpoints exist.
+The AI SDK UI runs in React and FastAPI remains the backend. The tutor and first-use goal chat use the AI SDK text stream protocol, which FastAPI returns directly; a separate Node server is not required. Gemini calls run only on the backend. The topic-page learning partner uses a regular structured model call to draft edits, then the application validates and applies them only after learner confirmation; it does not run a tool-using agent loop.
 
 The shared shadcn/ui components live in `frontend/src/components/ui/` and are configured by `frontend/components.json`. The project uses the Base UI-backed shadcn style for Tailwind v4. Extend these shared components instead of adding screen-specific controls.
 
@@ -34,7 +34,20 @@ Use `npm run lint` to catch raw buttons that bypass the shared interaction style
 - Topic space: manage source names, inspect the read-only prerequisite graph, filter questions, and edit Lea's learning context.
 - Question and review: answer with optional stepped hints or tutor chat, rate difficulty, see qualitative progress evidence, and follow the explained next recommendation.
 
-The demo uses seeded data and loading delays so the frontend can be worked on before the API is available. In local demo mode the selected filename is recorded, while file contents are not yet extracted or analyzed. Storage calls are isolated behind a small local data layer; mock state is stored in browser `localStorage`.
+The demo uses seeded data and loading delays so the frontend can be worked on before the API is available. In demo mode, mock state is stored in browser `localStorage`. In backend mode, SQLite stores topics and learning records under `backend/data/`, and original uploads plus extracted text are kept locally there. Chat transcripts are not saved. Relevant source excerpts, setup goals, answers, and current tutor messages are sent to Gemini for plan generation or tutoring.
+
+Before each backend AI action, Lea shows a confirmation dialog describing what will be sent. The scripted demo does not show this dialog because it makes no external AI request.
+
+### Gemini API key
+
+Create an API key in [Google AI Studio](https://aistudio.google.com/app/apikey). Copy `backend/.env.example` to `backend/.env`, then add the key there:
+
+```dotenv
+GEMINI_API_KEY=your-secret-key
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+`backend/.env` and `backend/data/` are ignored by Git. Never put the key in `frontend/.env.local`, a `VITE_*` variable, source code, or a commit. If a key is exposed, revoke it and create another one. Restart the backend after changing this file.
 
 ### FastAPI connection contract
 
@@ -48,13 +61,18 @@ Set `VITE_DEMO_MODE=false` to switch from fixtures to the typed adapter in `fron
 | `POST` | `/api/topics/sources` | Create a topic from an uploaded source (`multipart/form-data`, `file`) |
 | `POST` | `/api/topics/{topic_id}/sources` | Add source material to a topic |
 | `PATCH` / `DELETE` | `/api/topics/{topic_id}/sources/{source_id}` | Rename or remove a source |
-| `POST` | `/api/topics/{topic_id}/scope/stream` | Accept AI SDK UI messages, process the learner’s goal, persist the updated plan, and stream the assistant reply as `text/plain` |
+| `POST` | `/api/topics/{topic_id}/scope/stream` | First-use only: accept the learner's goal, generate and persist the initial plan from the extracted notes, then stream a ready message as `text/plain`. |
+| `POST` | `/api/topics/{topic_id}/conversation/propose` | Use the conversation and current topic to return a structured proposal to edit, add, or delete plan items without saving it. |
+| `POST` | `/api/topics/{topic_id}/conversation/apply` | Validate and apply a previously reviewed proposal if its topic version is still current; protects questions with attempts and nodes with progress. |
 | `PATCH` | `/api/topics/{topic_id}/context` | Save editable learner context |
 | `POST` | `/api/questions/answer` | Evaluate an answer and return feedback, evidence, and a next-step recommendation |
+| `POST` | `/api/topics/{topic_id}/recommendation` | Recommend a question using attempt history and current learning-step progress; generate and save a source-grounded question when the learner needs more practice and the queue has no suitable unused question |
 | `PATCH` | `/api/questions/{question_id}/difficulty` | Save Lea's too-easy / about-right / too-hard rating |
 | `POST` | `/api/tutor/stream` | Accept AI SDK UI messages plus `questionId`; stream the tutor reply as `text/plain` |
 
-The two AI stream routes use the AI SDK text stream protocol: stream UTF-8 assistant text in the response body with `Content-Type: text/plain; charset=utf-8`. Their request bodies contain a `messages` array of AI SDK UI messages (`id`, `role`, `parts`) and the related `topicId` or `questionId`. The plan route should save its generated plan before completing the stream; the frontend then reloads that topic. Other JSON requests use a 15-second client timeout, and the UI provides pending, retry, and failure states. Avoid placing provider secrets in `VITE_*` variables; they are bundled into browser code.
+The two AI stream routes accept the AI SDK UI `messages` array and stream UTF-8 assistant text with `Content-Type: text/plain; charset=utf-8`. The setup route saves the plan before completing the stream; the frontend reloads that topic. Tutor and plan-chat transcripts are not persisted in Lea. Each Gemini call is stateless and receives only the current request's relevant context. Topic proposals are validated against the current plan version when applied, so a stale proposal must be regenerated. Answer review, upload/OCR, and AI operations can take longer than ordinary data requests.
+
+Generated practice questions and answer feedback may include source references. The backend verifies each quoted excerpt against the named uploaded source before returning it. Adaptive practice uses saved attempt outcomes, difficulty ratings, and learning-step progress; learners can stop the practice chain by returning to the topic plan.
 
 ### Backend
 
@@ -66,7 +84,17 @@ pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
-Vite proxies `/api` requests to the FastAPI server on port 8000. The current backend only has a health endpoint; implement the route table above and replace the local Lea fixtures and scripted answers with persistent data and agent logic as the backend takes shape.
+On Debian or Ubuntu, install OCR support with `sudo apt install tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu`. Scanned PDFs need this system package in addition to the Python packages above. Legacy `.doc` and `.ppt` files can be converted when LibreOffice is installed; `.docx` and `.pptx` do not need it.
+
+Then copy `frontend/.env.example` to `frontend/.env.local`, set `VITE_DEMO_MODE=false`, and run the frontend as above. Vite proxies `/api` requests to FastAPI on port 8000. The backend initializes its SQLite database and uploads directory on first start.
+
+To reset all backend development data, run this from the repository root:
+
+```bash
+python reset_db.py
+```
+
+The command asks you to type `RESET`, then deletes and recreates the local SQLite database with the starter learner and clears uploaded source files. This removes topics, plans, questions, attempts, learner settings, extracted source text, and uploaded originals. Use `python reset_db.py --yes` to skip the prompt. It refuses non-SQLite databases and data paths outside `backend/data/`.
 
 ## Shared team skill
 
@@ -75,4 +103,11 @@ The reusable `grill-me` skill is in [`skills/grill-me/SKILL.md`](skills/grill-me
 ```bash
 mkdir -p ~/.codex/skills/grill-me
 cp skills/grill-me/SKILL.md skills/grill-me/LICENSE ~/.codex/skills/grill-me/
+```
+
+The learning behavior is also available as [`skills/learning-habits-coach/SKILL.md`](skills/learning-habits-coach/SKILL.md). The backend uses the same learning principles in its API prompts; installing the Codex skill makes them available when Codex itself helps with study sessions:
+
+```bash
+mkdir -p ~/.codex/skills/learning-habits-coach
+cp -R skills/learning-habits-coach/* ~/.codex/skills/learning-habits-coach/
 ```

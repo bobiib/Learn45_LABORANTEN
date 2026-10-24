@@ -192,7 +192,6 @@ body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: clip; backgro
 .flow-node-cta-icon { transition: transform .18s ease; }
 .flow-shell .react-flow__node-default:hover .flow-node-cta-icon { transform: translateY(2px); }
 .chat-transcript, .tutor-messages { scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
-.setup-aside { background-image: radial-gradient(circle at 95% 5%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 35%); }
 .context-card { align-self: start; }
 
 @media (max-width: 1023px) { .mission-action-panel { border-top: 1px solid color-mix(in oklab, var(--primary) 20%, var(--border)); border-left: 0; } }

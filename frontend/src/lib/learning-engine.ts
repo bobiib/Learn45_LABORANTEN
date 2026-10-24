@@ -100,7 +100,7 @@ export const practiceActivities: LearningActivity[] = [
       { id: 'draw', label: 'Unentschieden erkennen', explanation: 'Ein volles Feld ohne Sieg ist ein anderer Endzustand.', pattern: 'draw|unentschieden|tie|volles feld|vollen feld|full' },
     ],
     hints: ['Welche Informationen müssen sich nach jedem Zug ändern? Skizziere zuerst nur den Spielzustand.', 'Trenne die Aufgaben: Zug einlesen, Feld prüfen, Zustand ändern, Spielende prüfen. Welche davon kannst du einzeln testen?', 'Teste eine einzelne Siegprüfung mit einem vorbereiteten Spielfeld, bevor du sie in die Spielschleife einbaust. Dasselbe funktioniert für ein volles Feld ohne Sieger.'],
-    accept: '.py,.txt,.zip', fileLabel: 'Python, TXT oder ZIP · bis 5 MB', transfer: true,
+    accept: '.py,.txt', fileLabel: 'Python oder TXT · bis 5 MB', transfer: true,
   },
 ]
 
@@ -112,7 +112,7 @@ export function activityForQuestion(question: LearningQuestion): LearningActivit
     stage: question.stage, minutes: parseInt(question.duration, 10) || 4, format: question.stage === 'Create' ? 'artifact' : 'write',
     rationale: 'Diese Aufgabe vertieft dein aktuelles Lernziel.',
     scenario: { title: 'Dein Lernmaterial', text: 'Beziehe dich bei deiner Antwort auf das Material in deinem Themenraum.', source: 'Eigene Unterlagen' },
-    criteria: [], hints: ['Was soll deine Antwort zeigen?', 'Teile die Aufgabe in einen ersten kleinen Schritt.', 'Welche Stelle in deinem Lernmaterial hilft beim ersten Schritt?'], accept: '.txt,.md,.pdf,.docx,.py,.zip', fileLabel: 'Text, Dokument oder Code · bis 5 MB',
+    criteria: [], hints: ['Was soll deine Antwort zeigen?', 'Teile die Aufgabe in einen ersten kleinen Schritt.', 'Welche Stelle in deinem Lernmaterial hilft beim ersten Schritt?'], accept: '.txt,.md,.pdf,.docx,.py', fileLabel: 'Text, Dokument oder Code · bis 5 MB',
   }
 }
 

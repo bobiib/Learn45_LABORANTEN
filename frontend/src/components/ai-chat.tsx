@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { TextStreamChatTransport, type UIMessage } from 'ai'
 import { useChat } from '@ai-sdk/react'
 import { ArrowUp } from 'lucide-react'
+import { AIConfirmationDialog } from '@/components/ui/ai-confirmation-dialog'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -22,6 +23,7 @@ type AIChatProps = {
   title: string
   detail: string
   compact?: boolean
+  planGenerated?: boolean
   inputId?: string
   placeholder?: string
   onMessagesChange?: (messages: ChatMessage[]) => void
@@ -72,12 +74,14 @@ export function AIChatPanel({
   title,
   detail,
   compact = false,
+  planGenerated = false,
   inputId,
   placeholder,
   onMessagesChange,
   onTopicUpdated,
 }: AIChatProps) {
   const [input, setInput] = useState('')
+  const [pendingText, setPendingText] = useState('')
   const [localError, setLocalError] = useState('')
   const initial = useMemo(() => toUiMessages(initialMessages), [chatId])
   const transport = useMemo(() => new TextStreamChatTransport({
@@ -150,16 +154,29 @@ export function AIChatPanel({
     <form onSubmit={(event) => {
       event.preventDefault()
       const text = input.trim()
-      if (!text || busy) return
+      if (!text || busy || planGenerated) return
       setLocalError('')
-      setInput('')
-      void sendMessage({ text })
+      if (isDemoMode) {
+        setInput('')
+        void sendMessage({ text })
+      } else {
+        setPendingText(text)
+      }
     }} className="mt-3.5 flex items-end gap-2">
       {kind === 'scope'
-        ? <Textarea id={inputId} value={input} onChange={(event) => setInput(event.target.value)} rows={2} required disabled={busy} className="min-h-11 resize-none rounded-lg" aria-label="Sag dem Lerncoach, was du anpassen möchtest" placeholder={placeholder ?? 'Sag der KI, welche Themen du lernen, ergänzen oder entfernen möchtest…'} />
+        ? <Textarea id={inputId} value={input} onChange={(event) => setInput(event.target.value)} rows={2} required disabled={busy || planGenerated} className="min-h-11 resize-none rounded-lg" aria-label="Sag dem Lerncoach, was du anpassen möchtest" placeholder={placeholder ?? 'Sag der KI, welche Themen du lernen, ergänzen oder entfernen möchtest…'} />
         : <Input id={inputId} value={input} onChange={(event) => setInput(event.target.value)} required disabled={busy} className="h-10 rounded-lg" aria-label="Den KI-Coach fragen" placeholder={placeholder ?? 'Was ist gerade schwierig?'} />}
-      <Button variant="primary" type="submit" size="icon-lg" aria-label="Nachricht senden" disabled={busy || !input.trim()}><ArrowUp className="size-4" aria-hidden="true" /></Button>
+      <Button variant="primary" type="submit" size="icon-lg" aria-label="Nachricht senden" disabled={busy || planGenerated || !input.trim()}><ArrowUp className="size-4" aria-hidden="true" /></Button>
     </form>
-    {kind === 'tutor' && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">Du entscheidest: Schließe den KI-Coach jederzeit und übe selbstständig weiter.</p>}
+    {kind === 'tutor' && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">Du entscheidest: Schließe den KI-Coach jederzeit und übe selbstständig weiter.{!isDemoMode && ' Tutor-Nachrichten werden an Gemini gesendet und nicht in Leas Chatverlauf gespeichert.'}</p>}
+    {kind === 'scope' && planGenerated && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">Dein Lernpfad ist bereit. Öffne ihn, um die Schritte und Fragen zu prüfen.</p>}
+    <AIConfirmationDialog
+      open={Boolean(pendingText)}
+      title={kind === 'scope' ? 'Lernpfad mit KI erstellen?' : 'Nachricht an den KI-Coach senden?'}
+      description={kind === 'scope' ? 'Lea verwendet Gemini, um aus deinen Notizen und deinem Lernziel einen ersten Lernpfad zu erstellen.' : 'Der KI-Coach verwendet den Kontext dieser Lerneinheit für seine Antwort.'}
+      details={kind === 'scope' ? 'Deine hochgeladenen Notizen, dein Lernziel und der bisherige Einrichtungschat werden gesendet. Der Chatverlauf wird nicht in Lea gespeichert.' : 'Deine Nachricht, die Frage und relevante Auszüge aus deinen Lernnotizen werden gesendet. Der Chatverlauf wird nicht in Lea gespeichert.'}
+      onCancel={() => setPendingText('')}
+      onConfirm={() => { const text = pendingText; setPendingText(''); setInput(''); void sendMessage({ text }) }}
+    />
   </Card>
 }
