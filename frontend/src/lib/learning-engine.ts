@@ -1,5 +1,5 @@
 import { activityTime } from './learning-content.ts'
-import type { AnswerSubmission, BloomStage, LearningActivity, LearningMode, LearningQuestion, PracticeAttempt, ReviewResult } from './types'
+import type { AnswerSubmission, BloomStage, LearningActivity, LearningMode, LearningQuestion, PracticeAttempt, ReviewResult } from './learning-types'
 
 export const bloomLabels: Record<BloomStage, string> = {
   Remember: 'Erinnern', Understand: 'Verstehen', Apply: 'Anwenden',

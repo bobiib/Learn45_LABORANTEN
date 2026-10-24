@@ -2,7 +2,7 @@ import { useId, useRef, useState } from 'react'
 import { Check, FileCode2, FileText, LoaderCircle, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import type { LearningActivity } from '@/lib/types'
+import type { LearningActivity } from '@/lib/learning-types'
 
 export type AnswerDraft = { text: string; selected: string[]; file?: File; fileName?: string; fileText?: string; reading?: boolean }
 export const emptyDraft = (): AnswerDraft => ({ text: '', selected: [] })

@@ -15,17 +15,18 @@
   --muted-foreground: #6B7280;
   --primary: #A2CFFE;
   --primary-foreground: #17324D;
-  --secondary: #EDF6FF;
-  --secondary-foreground: #17324D;
+  --secondary: #F3F4F6;
+  --secondary-foreground: #111827;
   --accent: #EDF6FF;
-  --accent-foreground: #17324D;
-  --warning: oklch(0.965 0.045 88);
-  --warning-foreground: oklch(0.34 0.067 70);
+  --accent-foreground: #0F172A;
+  --warning: #EDF6FF;
+  --warning-foreground: #1E3A5F;
+  --streak: #F97316;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: #E5E7EB;
   --input: #D1D5DB;
-  --ring: #4B8FC9;
+  --ring: #A2CFFE;
   --radius: 1rem;
   --radius-xs: calc(var(--radius) - 0.75rem);
   --radius-sm: calc(var(--radius) - 0.5rem);
@@ -51,6 +52,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-streak: var(--streak);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
@@ -60,8 +62,9 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--background); }
+html { scroll-behavior: smooth; overflow-x: clip; }
+body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: clip; background: var(--background); }
+.app-frame { overflow-x: clip; }
 ::selection { background: var(--accent); color: var(--accent-foreground); }
 
 .panel {
@@ -76,13 +79,81 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--backgro
 .progress-bar [data-slot="progress-indicator"] { border-radius: 9999px; transition: width .55s ease; }
 .eyebrow { font-size: .67rem; font-weight: 700; letter-spacing: .14em; color: var(--muted-foreground); }
 .app-header { position: sticky; top: 0; z-index: 20; }
-.brand-mark { box-shadow: 0 5px 14px color-mix(in oklab, var(--primary) 22%, transparent); }
-.brand-name span { color: var(--primary-foreground); }
-.dashboard-hero { isolation: isolate; box-shadow: 0 18px 55px color-mix(in oklab, var(--primary) 20%, transparent); }
-.hero-orb { position: absolute; z-index: -1; border: 1px solid color-mix(in oklab, var(--primary-foreground) 12%, transparent); border-radius: 9999px; pointer-events: none; }
-.hero-orb-one { width: 440px; height: 440px; right: 4%; top: -70%; background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 12%, transparent), transparent 67%); }
-.hero-orb-two { width: 330px; height: 330px; right: 27%; bottom: -70%; background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 8%, transparent), transparent 68%); }
+.brand-mark { box-shadow: none; }
+.brand-name span { color: var(--primary); }
+.dashboard-hero { isolation: isolate; background-image: linear-gradient(128deg, color-mix(in oklab, white 8%, transparent), transparent 58%); box-shadow: none; }
+.hero-rhythm-card { background: color-mix(in oklab, var(--primary-foreground) 8%, transparent); box-shadow: inset 0 1px color-mix(in oklab, var(--primary-foreground) 12%, transparent); backdrop-filter: blur(10px); }
+.hero-progress-value { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; padding-top: .25rem; font-variant-numeric: tabular-nums; }
+.hero-progress-value span:first-child { font-size: 2rem; font-weight: 700; letter-spacing: -.06em; line-height: 1; }
+.hero-progress-value span:last-child { margin-top: .35rem; color: color-mix(in oklab, var(--primary-foreground) 70%, transparent); font-size: .65rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.continue-card { border-color: color-mix(in oklab, oklch(0.77 0.09 228) 34%, var(--border)); background: linear-gradient(105deg, color-mix(in oklab, oklch(0.94 0.035 225) 64%, var(--card)), var(--card) 62%); }
+.continue-card-mark { position: absolute; right: 9rem; top: -1.4rem; color: color-mix(in oklab, var(--primary) 5%, transparent); font-size: 9rem; font-weight: 800; letter-spacing: -.1em; line-height: 1; pointer-events: none; user-select: none; }
+.hero-orb { position: absolute; z-index: -1; border: 1px solid color-mix(in oklab, var(--primary-foreground) 20%, transparent); border-radius: 9999px; pointer-events: none; will-change: transform; background: transparent; }
+.hero-orb-one { width: 440px; height: 440px; left: -250px; top: -245px; }
+.hero-orb-two { width: 330px; height: 330px; left: calc(42% - 165px); top: calc(100% - 120px); }
+.hero-orb-three { width: 390px; height: 390px; left: calc(75% - 195px); top: -210px; }
+.hero-orb-four { width: 285px; height: 285px; left: calc(100% - 107.5px); top: calc(78% - 142.5px); }
+.hero-orb-one { animation: learning-drift-one 6s ease-in-out infinite; }
+.hero-orb-two { animation: learning-drift-two 7.5s ease-in-out infinite; }
+.hero-orb-three { animation: learning-drift-three 6.7s ease-in-out infinite; }
+.hero-orb-four { animation: learning-drift-four 8s ease-in-out infinite; }
+@keyframes learning-drift-one { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0) scale(1); } 35% { transform: translate3d(-10px, -8px, 0) rotate(-1deg) scale(1.015); } 70% { transform: translate3d(-18px, -14px, 0) rotate(-2deg) scale(1.035); } }
+@keyframes learning-drift-two { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0) scale(1); } 35% { transform: translate3d(10px, 8px, 0) rotate(1deg) scale(1.015); } 70% { transform: translate3d(18px, 14px, 0) rotate(2deg) scale(1.035); } }
+@keyframes learning-drift-three { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0) scale(1); } 35% { transform: translate3d(-10px, -8px, 0) rotate(-1deg) scale(1.015); } 70% { transform: translate3d(-18px, -14px, 0) rotate(-2deg) scale(1.035); } }
+@keyframes learning-drift-four { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0) scale(1); } 35% { transform: translate3d(11px, 8px, 0) rotate(1deg) scale(1.015); } 70% { transform: translate3d(19px, 14px, 0) rotate(2deg) scale(1.035); } }
+@media (max-width: 900px) { .hero-orb-one { width: 250px; height: 250px; left: -125px; top: -135px; } .hero-orb-two { width: 190px; height: 190px; left: calc(36% - 95px); top: calc(100% - 50px); } .hero-orb-three { width: 220px; height: 220px; left: calc(73% - 110px); top: -118px; } .hero-orb-four { width: 170px; height: 170px; left: calc(100% - 65px); top: calc(78% - 85px); } }
+@media (max-width: 640px) { .hero-orb-one { width: 145px; height: 145px; left: -82.5px; top: -82.5px; } .hero-orb-two { width: 115px; height: 115px; left: calc(100% - 75px); top: calc(100% - 37.5px); } .hero-orb-three { width: 130px; height: 130px; left: calc(73% - 65px); top: -73px; } .hero-orb-four { width: 105px; height: 105px; left: calc(100% - 42.5px); top: calc(78% - 52.5px); } }
+.streak-card { position: relative; isolation: isolate; overflow: hidden; border-color: var(--border); box-shadow: none; background: var(--card); }
+.streak-card::before { display: none; }
+.streak-flame { fill: color-mix(in oklab, var(--streak) 20%, transparent); stroke: var(--streak); stroke-width: 1.7; filter: none; animation: streak-flame-flow 1.35s cubic-bezier(.42, 0, .58, 1) infinite; transform-origin: 50% 90%; }
+@keyframes streak-flame-flow { 0%, 100% { transform: rotate(-1deg) scale(.99, 1.02); } 35% { transform: rotate(.8deg) scale(1.035, .99); } 68% { transform: rotate(-.6deg) scale(1, 1.045); } }
+.mission-card { border-color: color-mix(in oklab, var(--primary) 42%, var(--border)); background: color-mix(in oklab, var(--primary) 6%, var(--card)); box-shadow: none; transition: border-color .3s ease, transform .3s ease; }
+.mission-card:hover { border-color: color-mix(in oklab, var(--primary) 58%, var(--border)); box-shadow: none; transform: translateY(-2px); }
+.mission-card-glow { display: none; }
+.mission-pill { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid var(--border); border-radius: 9999px; background: color-mix(in oklab, var(--card) 88%, transparent); padding: .4rem .7rem; color: var(--muted-foreground); font-size: .68rem; font-weight: 600; }
+.mission-pill--signal { border-color: color-mix(in oklab, var(--primary) 38%, var(--border)); color: var(--primary-foreground); }
+.mission-steps { list-style: none; margin: 0; padding: 0; }
+.mission-step { display: flex; min-width: 0; align-items: flex-start; gap: .65rem; border: 1px solid var(--border); border-radius: 1rem; background: color-mix(in oklab, var(--card) 82%, var(--muted)); padding: .85rem; transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
+.mission-step:hover { transform: translateY(-2px); }
+.mission-step--done { border-color: color-mix(in oklab, var(--primary) 28%, var(--border)); background: color-mix(in oklab, var(--primary) 7%, var(--card)); }
+.mission-step--current { border-color: color-mix(in oklab, var(--primary) 58%, var(--border)); background: color-mix(in oklab, var(--primary) 15%, var(--card)); }
+.mission-step--next { opacity: .78; }
+.mission-step-icon { display: grid; width: 1.75rem; height: 1.75rem; flex: 0 0 auto; place-items: center; border-radius: .65rem; background: var(--muted); color: var(--muted-foreground); }
+.mission-step--done .mission-step-icon, .mission-step--current .mission-step-icon { background: var(--primary); color: var(--primary-foreground); }
+.mission-step--current .mission-step-icon { animation: mission-sparkle 2.4s ease-in-out infinite; }
+.mission-step-copy { display: flex; min-width: 0; flex-direction: column; gap: .22rem; }
+.mission-step-title { color: var(--foreground); font-size: .76rem; font-weight: 650; line-height: 1.3; }
+.mission-step-detail { color: var(--muted-foreground); font-size: .65rem; line-height: 1.45; }
+.mission-progress { display: flex; align-items: center; gap: .75rem; }
+.mission-progress-track { display: block; height: .4rem; flex: 1 1 auto; overflow: hidden; border-radius: 9999px; background: var(--muted); }
+.mission-progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.mission-progress-value { color: var(--muted-foreground); font-size: .68rem; font-weight: 600; white-space: nowrap; }
+.mission-action-panel { border-left: 1px solid color-mix(in oklab, var(--primary) 20%, var(--border)); background: color-mix(in oklab, var(--primary) 6%, var(--card)); }
+@keyframes mission-sparkle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.skill-progress-panel { margin-top: 1.25rem; border-top: 1px solid color-mix(in oklab, var(--primary) 18%, var(--border)); padding-top: 1rem; }
+.skill-progress-panel--compact { margin-top: 1rem; }
+.skill-progress-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem .8rem; }
+.skill-progress-note { margin-top: .2rem; color: var(--muted-foreground); font-size: .62rem; }
+.skill-focus-label { border-radius: 9999px; background: color-mix(in oklab, var(--primary) 14%, var(--card)); padding: .35rem .65rem; color: var(--primary-foreground); font-size: .62rem; font-weight: 650; }
+.skill-progress-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: .55rem; margin: .75rem 0 0; padding: 0; list-style: none; }
+.skill-progress-card { min-width: 0; border: 1px solid var(--border); border-radius: .9rem; background: color-mix(in oklab, var(--card) 84%, var(--muted)); padding: .65rem .7rem; }
+.skill-progress-card--focus { border-color: color-mix(in oklab, var(--primary) 58%, var(--border)); background: color-mix(in oklab, var(--primary) 10%, var(--card)); }
+.skill-progress-card-header { display: flex; min-width: 0; align-items: center; gap: .5rem; }
+.skill-progress-icon { display: grid; width: 1.7rem; height: 1.7rem; flex: 0 0 auto; place-items: center; border-radius: .6rem; background: color-mix(in oklab, var(--primary) 20%, var(--card)); color: var(--primary-foreground); }
+.skill-progress-copy { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; gap: .12rem; }
+.skill-progress-title { overflow: hidden; color: var(--foreground); font-size: .66rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.skill-progress-status { color: var(--muted-foreground); font-size: .58rem; }
+.skill-progress-value { color: var(--foreground); font-size: .66rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.skill-progress-track { height: .3rem; overflow: hidden; margin-top: .55rem; border-radius: 9999px; background: var(--muted); }
+.skill-progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+@media (min-width: 640px) { .skill-progress-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .topic-card { min-width: 0; }
+.topic-card-mark, .add-topic-mark { transition: transform .35s cubic-bezier(.2,.75,.25,1); }
+.topic-card:hover .topic-card-mark { transform: rotate(-8deg) scale(1.1); }
+.add-topic-card:hover .add-topic-mark { transform: rotate(90deg) scale(1.08); }
+.add-topic-card:hover { border-style: solid; }
+.continue-card-mark { animation: continue-mark-float 6s ease-in-out infinite; transform-origin: center; }
+@keyframes continue-mark-float { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-10px) rotate(-3deg); } }
 .review-good { background: color-mix(in oklab, var(--accent) 78%, var(--card)); color: var(--foreground); }
 .review-partial { background: color-mix(in oklab, var(--warning) 72%, var(--card)); color: var(--foreground); }
 .review-try { background: color-mix(in oklab, var(--muted) 88%, var(--card)); color: var(--foreground); }
@@ -102,17 +173,47 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--backgro
 .flow-shell .react-flow__controls-button:hover { background: var(--accent); }
 .flow-shell .react-flow__edge-path { stroke: var(--border); }
 .flow-shell .react-flow__attribution { display: none; }
+.flow-shell .react-flow__node-default {
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease, transform .18s ease;
+}
+.flow-shell .react-flow__node-default:hover,
+.flow-shell .react-flow__node-default:focus-within {
+  border-color: var(--primary) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px color-mix(in oklab, var(--primary) 18%, transparent) !important;
+}
+.flow-node-content { position: relative; display: flex; min-height: 118px; flex-direction: column; gap: 7px; white-space: normal; text-align: left; }
+.flow-node-status { font-size: 11.5px; }
+.flow-node-title { display: block; font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
+.flow-node-progress { margin-top: auto; padding-top: 6px; gap: 5px; font-size: 11.5px; font-weight: 500; }
+.flow-node-progress-track { height: 6.5px; }
+.flow-node-cta { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; padding-top: 7px; border-top: 1px dashed var(--border); color: var(--foreground); font-size: 12px; font-weight: 650; transition: color .18s ease, border-color .18s ease; }
+.flow-node-cta.is-selected, .flow-shell .react-flow__node-default:hover .flow-node-cta { border-top-color: color-mix(in oklab, var(--primary) 65%, var(--border)); color: var(--primary-foreground); }
+.flow-node-cta-icon { transition: transform .18s ease; }
+.flow-shell .react-flow__node-default:hover .flow-node-cta-icon { transform: translateY(2px); }
 .chat-transcript, .tutor-messages { scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
 .setup-aside { background-image: radial-gradient(circle at 95% 5%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 35%); }
 .context-card { align-self: start; }
+
+@media (max-width: 1023px) { .mission-action-panel { border-top: 1px solid color-mix(in oklab, var(--primary) 20%, var(--border)); border-left: 0; } }
 
 @media (max-width: 640px) {
   .panel { border-radius: 1.25rem; }
   .flow-shell { margin-inline: -0.25rem; }
   .hero-stat-card { min-width: 0; }
+  .hero-rhythm-card { border-radius: 1.15rem; }
+  .mission-card:hover { transform: none; }
+  .mission-step:hover { transform: none; }
+  .mission-progress-value { font-size: .62rem; }
+  .continue-card-mark { right: 2rem; top: -1rem; }
   .app-header nav { max-width: 44vw; }
   .app-header nav > * { padding-inline: .65rem; }
   .brand-name { font-size: .94rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb-one, .hero-orb-two, .hero-orb-three, .hero-orb-four, .continue-card-mark { animation: none; }
+  .topic-card-mark, .add-topic-mark { transition: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

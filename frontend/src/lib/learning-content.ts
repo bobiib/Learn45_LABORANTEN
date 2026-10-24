@@ -1,4 +1,4 @@
-import type { BloomStage, LearningActivity, LearningMode } from './types'
+import type { BloomStage, LearningActivity, LearningMode } from './learning-types'
 
 export type TheoryContent = {
   title: string

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { BloomIndicator, LearningHelp, LearningModes, LearningPopover, LearningSurface, LearningTabs, type LearningTab } from '@/components/ui/learning'
 import { LearningAnswer, canSubmitActivity, type AnswerDraft } from '@/components/learning-answer'
 import { pairLearners, pairRoles, projectFor, theoryFor } from '@/lib/learning-content'
-import type { LearningActivity, LearningMode } from '@/lib/types'
+import type { LearningActivity, LearningMode } from '@/lib/learning-types'
 
 export type PairPhase = 'first' | 'handoff' | 'second' | 'compare'
 type QuestionWorkspaceProps = {

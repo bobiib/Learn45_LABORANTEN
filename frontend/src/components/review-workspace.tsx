@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { BloomIndicator, LearningPopover, LearningReveal, LearningSurface } from '@/components/ui/learning'
 import { bloomLabels } from '@/lib/learning-engine'
 import { activityTime } from '@/lib/learning-content'
-import type { AnswerSubmission, LearningActivity, LearningMode, PracticeAttempt, ReviewResult } from '@/lib/types'
+import type { AnswerSubmission, LearningActivity, LearningMode, PracticeAttempt, ReviewResult } from '@/lib/learning-types'
 import type { AnswerDraft } from './learning-answer'
 
 type ReviewWorkspaceProps = {

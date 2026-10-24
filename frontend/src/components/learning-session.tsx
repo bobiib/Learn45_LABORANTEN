@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, BookOpen, CheckCircle2, RotateCcw, UsersRound } from 'lucide-react'
-import { AIChatPanel } from './ai-chat'
+import { AIChatPanel } from './learning-coach'
 import { QuestionWorkspace, type PairPhase } from './question-workspace'
 import { ReviewWorkspace } from './review-workspace'
 import { canSubmitActivity, emptyDraft, type AnswerDraft } from './learning-answer'
@@ -9,8 +9,9 @@ import { Button } from './ui/button'
 import { LearningNavigation, LearningStart, LearningSteps, LearningSurface } from './ui/learning'
 import { activityForQuestion, fitActivityToBudget, nextActivity } from '@/lib/learning-engine'
 import { activityTime, pairLearners, pairRoles } from '@/lib/learning-content'
-import { isDemoMode, learningApi } from '@/lib/api'
-import type { AnswerSubmission, ChatMessage, LearningActivity, LearningMode, LearningQuestion, PracticeAttempt, ReviewResult, Topic } from '@/lib/types'
+import { isDemoMode } from '@/lib/api'
+import { practiceApi as learningApi } from '@/lib/learning-api'
+import type { AnswerSubmission, ChatMessage, LearningActivity, LearningMode, LearningQuestion, PracticeAttempt, ReviewResult, Topic } from '@/lib/learning-types'
 
 type Phase = 'question' | 'review' | 'summary'
 type SavedDraft = { text: string; selected: string[]; hadFile: boolean; fileName?: string }
@@ -39,17 +40,17 @@ function loadSession(key: string, questionId: string): SavedSession | null {
   } catch { return null }
 }
 
-export function LearningSession({ topic, question, onBack, onHome, onProgress }: { topic: Topic; question: LearningQuestion; onBack: () => void; onHome: () => void; onProgress: (topic: Topic) => void }) {
+export function LearningSession({ topic, question, startWithCoach = false, onBack, onHome, onProgress }: { topic: Topic; question: LearningQuestion; startWithCoach?: boolean; onBack: () => void; onHome: () => void; onProgress: (topic: Topic) => void }) {
   const storageKey = `learn45.practice.v2.${topic.id}.${question.id}`
   const [saved] = useState(() => loadSession(storageKey, question.id))
   const [started, setStarted] = useState(saved ? saved.started !== false : false)
   const [activity, setActivity] = useState(() => saved?.activity ?? activityForQuestion(question))
   const [phase, setPhase] = useState<Phase>(saved?.phase ?? 'question')
   const [draft, setDraft] = useState<AnswerDraft>(() => saved ? unpackDraft(saved.draft) : emptyDraft())
-  const [mode, setMode] = useState<LearningMode>(saved?.mode ?? (question.mode === 'Partner' ? 'together' : 'solo'))
+  const [mode, setMode] = useState<LearningMode>(saved?.mode ?? (startWithCoach && topic.context.tutorEnabled ? 'coach' : question.mode === 'Partner' ? 'together' : 'solo'))
   const [supported, setSupported] = useState(saved?.supported ?? false)
   const [theoryViewed, setTheoryViewed] = useState(saved?.theoryViewed ?? false)
-  const [coachOpen, setCoachOpen] = useState(saved?.coachOpen ?? saved?.messages.some((message) => message.role === 'user') ?? false)
+  const [coachOpen, setCoachOpen] = useState(saved?.coachOpen ?? saved?.messages.some((message) => message.role === 'user') ?? (startWithCoach && topic.context.tutorEnabled))
   const [attempts, setAttempts] = useState<PracticeAttempt[]>(saved?.attempts ?? [])
   const [review, setReview] = useState<ReviewResult | null>(saved?.review ?? null)
   const [messages, setMessages] = useState<ChatMessage[]>(saved?.messages ?? intro(activity))
@@ -141,7 +142,7 @@ export function LearningSession({ topic, question, onBack, onHome, onProgress }:
     setActivity(fitted)
     setMessages(intro(fitted))
     setTheoryViewed(false)
-    setCoachOpen(false)
+    setCoachOpen(startWithCoach && topic.context.tutorEnabled)
     setStarted(true)
   }
 

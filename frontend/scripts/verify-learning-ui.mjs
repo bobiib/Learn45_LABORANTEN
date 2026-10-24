@@ -13,6 +13,13 @@ const context = await chromium.launchPersistentContext(path.join(output, `profil
   args: ['--disable-gpu', '--renderer-process-limit=2'],
 })
 const errors = []
+await context.addInitScript(() => {
+  window.__learningClicks = []
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest?.('button')
+    if (button) window.__learningClicks.push(button.innerText || button.getAttribute('aria-label'))
+  }, true)
+})
 context.on('page', (page) => page.on('pageerror', (error) => errors.push(error.message)))
 const page = context.pages()[0]
 page.on('pageerror', (error) => errors.push(error.message))
@@ -24,8 +31,30 @@ const click = (name) => page.getByRole('button', { name, exact: true }).click()
 const tab = (name) => page.getByRole('tab', { name, exact: true })
 const timeHeading = () => page.getByRole('heading', { name: 'Wie viel Zeit hast du?', exact: true })
 const screenshot = async (name) => { await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' })); await page.waitForTimeout(350); await page.screenshot({ path: path.join(output, `${name}.png`), fullPage: true }) }
-async function home() { await page.goto(url); await page.getByRole('button', { name: 'Einheit fortsetzen', exact: true }).waitFor() }
-async function clean() { await page.evaluate(() => { for (const key of Object.keys(localStorage)) if (key.startsWith('learn45.practice.v2.')) localStorage.removeItem(key) }); await home() }
+async function home() { await page.goto(url); await page.getByRole('button', { name: 'Lerneinheit fortsetzen', exact: true }).waitFor() }
+async function clean() { await page.evaluate(() => { for (const key of Object.keys(localStorage)) if (key.startsWith('learn45.practice.v2.') || key.startsWith('learn45.topic.qa-')) localStorage.removeItem(key) }); await home() }
+async function openSeededTopic(kind) {
+  const title = kind === 'python' ? 'Mit Python etwas Eigenes bauen' : 'Parnerarbeit prüfen'
+  await page.evaluate(({ kind, title }) => {
+    const id = 'qa-' + kind
+    const key = 'learn45.topic.' + id
+    if (localStorage.getItem(key)) return
+    const python = kind === 'python'
+    const skillId = python ? 'python-game' : 'prompt-criteria'
+    const evidence = { Remember: 0, Understand: 0, Apply: 0, Analyze: 0, Evaluate: 0, Create: 0 }
+    localStorage.setItem(key, JSON.stringify({
+      id, title, subject: 'UI-Prüfung', description: 'Isoliertes Übungsmaterial für die Browserprüfung.',
+      progress: 0, updatedLabel: 'Für die Prüfung', sources: [],
+      nodes: [{ id: skillId, label: title, description: title, prerequisites: [], progress: 0, eligible: true, evidence }],
+      questions: [{ id: python ? 'q-python-create' : 'q-compare', topicId: skillId, title, prompt: title,
+        stage: python ? 'Create' : 'Analyze', mode: python ? 'Solo' : 'Partner', duration: '10 Min.', status: 'recommended' }],
+      context: { examDate: '2026-11-02', timeAvailable: '30 Minuten', preferredLength: 'Short', tutorEnabled: true, focus: title },
+    }))
+  }, { kind, title })
+  await home()
+  await page.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Thema öffnen' }).click()
+}
+
 async function chooseDuration(minutes = 15) {
   await timeHeading().waitFor()
   for (const duration of [5, 15, 30]) await page.getByRole('button', { name: `${duration} Min.`, exact: true }).waitFor()
@@ -38,7 +67,7 @@ async function chooseDuration(minutes = 15) {
   await page.getByRole('button', { name: new RegExp(`Noch ca\\. ${minutes} Min\\.`) }).waitFor()
 }
 async function start({ restored = false, minutes = 15 } = {}) {
-  await click('Einheit fortsetzen')
+  await click('Lerneinheit fortsetzen')
   if (restored) assert.equal(await timeHeading().count(), 0, 'A saved session keeps its chosen time budget.')
   else await chooseDuration(minutes)
   await page.getByRole('heading', { name: 'Aus «gut» wird überprüfbar.' }).waitFor()
@@ -66,8 +95,16 @@ async function noOverflow() { assert.ok(await page.evaluate(() => document.docum
 
 try {
   await home()
+  await screenshot('merged-landing')
+  await click('Mit KI-Coach starten')
+  await chooseDuration(15)
+  await page.getByRole('textbox', { name: 'Den KI-Coach fragen', exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Mit KI', exact: true }).getAttribute('aria-pressed'), 'true')
+  await click('Lernpfad')
+  await page.getByRole('button', { name: 'Empfohlene Aufgabe starten', exact: true }).waitFor()
+  await screenshot('merged-topic')
   await clean()
-  await click('Einheit fortsetzen')
+  await click('Lerneinheit fortsetzen')
   await timeHeading().waitFor()
   const customTime = page.getByRole('spinbutton', { name: 'Eigene Dauer', exact: true })
   const begin = page.getByRole('button', { name: 'Loslegen', exact: true })
@@ -110,8 +147,8 @@ try {
   await page.getByRole('textbox', { name: 'Leas Perspektive', exact: true }).waitFor()
   await screenshot('tandem-short-session')
   await clean()
-  await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Klare KI-Prompts schreiben', exact: true }) }).getByRole('button', { name: 'Thema öffnen' }).click()
-  await page.getByRole('article').filter({ has: page.getByText('Ein fehlendes Kriterium erkennen', { exact: true }) }).getByRole('button', { name: 'Start', exact: true }).click()
+  await openSeededTopic('pair')
+  await click('Empfohlene Aufgabe starten')
   await chooseDuration(5)
   await page.getByRole('heading', { name: 'Dein erster Projektbaustein.', exact: true }).waitFor()
   assert.equal(await page.getByRole('button', { name: 'Zu zweit', exact: true }).getAttribute('aria-pressed'), 'true', 'A Partner question starts in together mode.')
@@ -231,7 +268,7 @@ try {
   assert.equal(await page.getByRole('textbox', { name: 'Dein Versuch', exact: true }).inputValue(), 'DIESER-TEXT-BLEIBT: Mein eigener Zwischenstand.')
   await page.evaluate(() => { const key = Object.keys(localStorage).find((value) => value.startsWith('learn45.practice.v2.') && value.includes('q-criteria')); const state = JSON.parse(localStorage.getItem(key)); state.budget = 2; state.elapsed = 0; localStorage.setItem(key, JSON.stringify(state)) })
   await page.reload()
-  await click('Einheit fortsetzen')
+  await click('Lerneinheit fortsetzen')
   assert.equal(await timeHeading().count(), 0)
   await tab('Aufgabe').click()
   await page.getByRole('textbox', { name: 'Dein Versuch', exact: true }).fill(good)
@@ -325,8 +362,8 @@ try {
   assert.equal((await savedSession()).pairRound, 2, 'Retrying a submitted round must not rotate roles twice.')
 
   await clean()
-  await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Mit Python etwas Eigenes bauen', exact: true }) }).getByRole('button', { name: 'Thema öffnen' }).click()
-  await click('Empfohlene Übung starten')
+  await openSeededTopic('python')
+  await click('Empfohlene Aufgabe starten')
   await chooseDuration(30)
   await page.getByRole('heading', { name: 'Ein kleines Spiel. Deine Regeln.' }).waitFor()
   await tab('Aufgabe').click()
@@ -340,8 +377,8 @@ try {
   await screenshot('artifact-desktop')
   await page.waitForTimeout(500)
   await home()
-  await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Mit Python etwas Eigenes bauen', exact: true }) }).getByRole('button', { name: 'Thema öffnen' }).click()
-  await click('Empfohlene Übung starten')
+  await openSeededTopic('python')
+  await click('Empfohlene Aufgabe starten')
   assert.equal(await timeHeading().count(), 0)
   await tab('Aufgabe').click()
   await page.getByText('Dein Text wurde wiederhergestellt.', { exact: false }).waitFor()
@@ -362,8 +399,8 @@ try {
   await screenshot('session-summary')
 
   await clean()
-  await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Mit Python etwas Eigenes bauen', exact: true }) }).getByRole('button', { name: 'Thema öffnen' }).click()
-  await click('Empfohlene Übung starten')
+  await openSeededTopic('python')
+  await click('Empfohlene Aufgabe starten')
   await chooseDuration(30)
   await click('Zu zweit')
   await page.getByRole('textbox', { name: 'Mit wem?', exact: true }).fill('Noah')
@@ -407,6 +444,7 @@ try {
   assert.deepEqual(errors, [], 'Browser errors')
   console.log('Learning UI: custom/default duration validation and persistence, closed/open coach, unified task info, explicit learning-help evidence, task/material keyboard tabs, solo adaptation, retry/resume, tandem privacy and Create tester/file handoff, file validation/preview, pending code review, summary, reduced motion and narrow layout passed.')
 } catch (cause) {
+  console.error(await page.evaluate(() => ({ clicks: window.__learningClicks?.slice(-12), errors: document.querySelector('[role=alert]')?.textContent })))
   await page.screenshot({ path: path.join(output, 'failure.png'), fullPage: true }).catch(() => {})
   throw cause
 } finally { await context.close() }

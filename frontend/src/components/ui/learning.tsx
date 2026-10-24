@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowUpRight, BookOpen, Check, ChevronRight, Clock3, Info, U
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Button } from './button'
 import { Input } from './input'
-import type { BloomStage, LearningMode } from '@/lib/types'
+import type { BloomStage, LearningMode } from '@/lib/learning-types'
 import { bloomLabels } from '@/lib/learning-engine'
 import type { TheoryContent } from '@/lib/learning-content'
 import './learning.css'

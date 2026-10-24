@@ -1,6 +1,6 @@
 # Question and review workspace
 
-The desktop learning workspace is implemented in `src/components/learning-session.tsx`. It coordinates task, review and session-summary states; `App.tsx` supplies the selected topic/question and receives independent progress updates.
+The desktop learning workspace is implemented in `src/components/learning-session.tsx`. It coordinates task, review and session-summary states; `App.tsx` supplies the selected topic/question and receives independent progress updates. The workspace loads lazily. Its coach, API extensions and types live in `learning-coach.tsx`, `learning-api.ts` and `learning-types.ts`, leaving the team's shared chat, API, fixtures and theme unchanged.
 
 ## Demo flows
 
@@ -8,13 +8,13 @@ The desktop learning workspace is implemented in `src/components/learning-sessio
 - Choose 5, 15 or 30 minutes, or enter a whole number from 5 to 180 before a fresh session. A valid saved session keeps its budget and place. **Aufgabe** and **Material** separate practice from its source. The inline **Lernhilfe öffnen** action reveals a contextual explanation and records the attempt as supported; merely reading the required source material does not.
 - The coach starts closed, with an empty body and **Coach hinzunehmen**. Choose **Mit KI** or that action for stepped, streamed coaching. Opening the empty coach alone does not count as help. Asking it a question records AI support, which remains recorded when switching back to solo.
 - Choose **Zu zweit**, enter the second person's name, and complete the sequence: Lea's answer → screen handoff → second answer → comparison → shared answer. Roles change with the Bloom stage (for example developer/tester at Create). The tester can write test cases without uploading a second artifact. The AI coach remains available; its conversation resets and starts closed for each turn. Support stays recorded across the round; the theory explanation closes when passing the screen. This is a turn-taking aid on one computer, not an authentication or privacy boundary. A joint success is followed by independent transfer on the same thinking level.
-- Open **Mit Python etwas Eigenes bauen** from the dashboard for the file-based Creating example. Choose a `.py`, `.txt` or `.zip` file, then explain the test cases.
+- A Creating task with the `q-python-create` identifier provides the Python file example. Choose a `.py`, `.txt` or `.zip` file, then explain the test cases. The browser check seeds its own topic through the existing topic cache; it does not alter dashboard fixtures.
 
 ## Task formats
 
 Within a saved learning session, each completed pair round advances the role rotation for the next task or new unit. The next pair round starts with the other person, so the two people exchange the stage-specific roles. Retrying, reloading, switching learning modes or leaving an unfinished round does not rotate roles. The assignment also determines handoff names, comparison labels, artifact ownership and coach turn context. The independent follow-up after joint success remains available before returning to pair work.
 
-`LearningActivity` in `src/lib/types.ts` contains the task snapshot, Bloom stage, source material, criteria, hints, estimated minutes and optional choices/file types. `src/lib/learning-engine.ts` provides a small explicit activity bank and a deterministic demo evaluator. Formats are writing, selection with justification, marking unsupported claims, and artifact submission. Tasks stay fixed while an answer is being written.
+`LearningActivity` in `src/lib/learning-types.ts` contains the task snapshot, Bloom stage, source material, criteria, hints, estimated minutes and optional choices/file types. `src/lib/learning-engine.ts` provides a small explicit activity bank and a deterministic demo evaluator. Formats are writing, selection with justification, marking unsupported claims, and artifact submission. Tasks stay fixed while an answer is being written.
 
 `src/lib/learning-content.ts` supplies contextual theory, three-part mini-project outlines and roles for every Bloom stage. The structure accepts any subject; this prototype includes prepared prompting and Python content. Unknown subjects explicitly need verified material. Changing the learning mode refits a task only while its answer is empty.
 
@@ -31,7 +31,7 @@ The demo uses regular expressions and exact option checks. This is not a semanti
 
 ## Backend integration contract
 
-The existing `learningApi` adapter remains the boundary. With `VITE_DEMO_MODE=false`, no scripted review is substituted for a failed request.
+`practiceApi` in `src/lib/learning-api.ts` adds practice submissions while reusing the team's shared API for difficulty ratings. With `VITE_DEMO_MODE=false`, no scripted review is substituted for a failed request.
 
 `POST /api/questions/answer` accepts the existing answer fields plus the activity snapshot, selected option identifiers, `learningMode`, optional `theoryUsed` and aggregate `supportUsed`. Theory support is distinct from `tutorUsed` and `hintsUsed`, which describe AI usage. `supportUsed` also covers reviewing feedback before retrying, without labelling that as AI usage. Without a file it is JSON. With a file it is `multipart/form-data` containing `file` and `submission` (JSON metadata). The backend must use its own trusted task/rubric definitions; client-provided criteria and option correctness are not authoritative.
 

@@ -1,6 +1,5 @@
-import { initialDashboard, createTopicFromFile, refreshEligibility } from './fixtures'
+import { initialDashboard, initialTopic, buildScopedPlanFromMessage, createTopicFromFile, refreshEligibility } from './fixtures'
 import type { AnswerSubmission, ChatMessage, DashboardData, ReviewResult, SetupResult, Topic } from './types'
-import { evaluatePractice } from './learning-engine'
 
 /**
  * Frontend contract for the learning backend. UI components call this interface
@@ -13,6 +12,7 @@ export interface LearningApi {
   uploadSource(file: File, topicId?: string, signal?: AbortSignal): Promise<Topic>
   renameSource(topicId: string, sourceId: string, name: string, signal?: AbortSignal): Promise<Topic>
   deleteSource(topicId: string, sourceId: string, signal?: AbortSignal): Promise<Topic>
+  deleteTopic(topicId: string, signal?: AbortSignal): Promise<void>
   scopeTopic(topicId: string, message: string, history: ChatMessage[], signal?: AbortSignal): Promise<SetupResult>
   updateContext(topicId: string, context: Topic['context'], signal?: AbortSignal): Promise<Topic['context']>
   submitAnswer(input: AnswerSubmission, signal?: AbortSignal): Promise<ReviewResult>
@@ -35,6 +35,16 @@ const pause = (signal?: AbortSignal, ms = 550) => new Promise<void>((resolve, re
   }, { once: true })
 })
 
+const deletedTopicsStorageKey = 'learn45.deleted-topics.v1'
+export function getDeletedTopicIds(): string[] {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(deletedTopicsStorageKey) ?? '[]') as unknown
+    return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : []
+  } catch {
+    return []
+  }
+}
+
 const demoApi: LearningApi = {
   async getDashboard(signal) {
     await pause(signal, 420)
@@ -52,8 +62,7 @@ const demoApi: LearningApi = {
     await pause(signal, 360)
     const cached = window.localStorage.getItem(`learn45.topic.${topicId}`)
     if (cached) return JSON.parse(cached) as Topic
-    const seeded = initialDashboard.topics.find((topic) => topic.id === topicId)
-    if (seeded) return structuredClone(seeded)
+    if (topicId === initialTopic.id) return structuredClone(initialTopic)
     throw new ApiError('We could not find this learning topic.', 404)
   },
   async uploadSource(file, topicId, signal) {
@@ -82,33 +91,72 @@ const demoApi: LearningApi = {
     window.localStorage.setItem(`learn45.topic.${topicId}`, JSON.stringify(updated))
     return updated
   },
-  async scopeTopic(topicId, message, history, signal) {
-    await pause(signal, 950)
-    const topic = await this.getTopic(topicId, signal)
-    const narrowed = /prüfung|woche|test|wichtig|fokus/i.test(message)
-    const assistantMessage = narrowed
-      ? 'Verstanden. Ich konzentriere mich auf die Teile, die für dein Ziel besonders nützlich sind, und halte die Übungsschritte kurz. Für diese Demo habe ich einen beispielhaften Lernpfad vorbereitet; du kannst die Angaben jederzeit anpassen.'
-      : 'Danke, das hilft mir zu verstehen, was dir wichtig ist. Welches Ergebnis wäre mit diesen Notizen am wertvollsten: zentrale Ideen erinnern, sie erklären oder sie in einer Aufgabe anwenden?'
-    return { topic: { ...topic, description: message || topic.description }, assistantMessage }
+  async deleteTopic(topicId, signal) {
+    await pause(signal, 320)
+    const deleted = new Set(getDeletedTopicIds())
+    deleted.add(topicId)
+    window.localStorage.setItem(deletedTopicsStorageKey, JSON.stringify([...deleted]))
+    window.localStorage.removeItem(`learn45.topic.${topicId}`)
+    window.localStorage.removeItem(`learn45.topic.ready.${topicId}`)
   },
-  async updateContext(_topicId, context, signal) {
+  async scopeTopic(topicId, message, _history, signal) {
+    await pause(signal, 850)
+    const topic = await this.getTopic(topicId, signal)
+    const result = buildScopedPlanFromMessage(topic, message)
+    window.localStorage.setItem(`learn45.topic.${topicId}`, JSON.stringify(result.topic))
+    return result
+  },  async updateContext(_topicId, context, signal) {
     await pause(signal, 320)
     return context
   },
   async submitAnswer(input, signal) {
     await pause(signal, 1150)
-    return evaluatePractice(input)
+    const answer = input.answer.toLowerCase()
+    const mentionsOutcome = /reader|lead|audience|action|decision|next step|owner|include|criteria/i.test(answer)
+    const detailed = answer.trim().split(/\s+/).length >= 12
+    const correctness = mentionsOutcome && detailed ? 'strong' : mentionsOutcome || detailed ? 'partial' : 'incorrect'
+    const hintPenalty = input.hintsUsed > 0 || input.tutorUsed
+    if (correctness === 'strong') return {
+      correctness,
+      headline: 'A clear start with a useful purpose',
+      feedback: 'You named a concrete audience or outcome and gave the AI enough direction to make the summary actionable. Next, check whether the requested details can be verified against the notes.',
+      evidenceLabel: hintPenalty ? 'Strong evidence · coached practice' : 'Strong independent evidence',
+      evidenceDelta: hintPenalty ? 8 : 14,
+      nextActivity: 'Make the success criteria checkable',
+      nextReason: 'Your prompt has a clear audience. The next step is to specify which evidence should appear so Lea can judge the summary reliably.',
+      nextQuestionId: input.questionId === 'q-criteria' ? 'q-revise' : 'q-criteria',
+    }
+    if (correctness === 'partial') return {
+      correctness,
+      headline: 'You have part of the prompt in place',
+      feedback: 'There is a useful detail here. Add the missing audience, outcome, or checkable requirement, then compare the revised prompt with the source notes.',
+      evidenceLabel: hintPenalty ? 'Some evidence · with coaching' : 'Some independent evidence',
+      evidenceDelta: hintPenalty ? 3 : 6,
+      nextActivity: 'Add one specific quality criterion',
+      nextReason: 'This attempt shows partial understanding. One more concrete requirement will make the next practice question a good fit.',
+      nextQuestionId: 'q-criteria',
+    }
+    return {
+      correctness,
+      headline: 'Let’s make the goal more concrete',
+      feedback: 'The answer does not yet name a reader, outcome, or requirement. Look back at who will use the summary and what they need to do with it; try again with a little more detail.',
+      evidenceLabel: 'Practice attempt saved · progress unchanged',
+      evidenceDelta: 0,
+      nextActivity: 'Try a shorter question about the reader',
+      nextReason: 'This attempt suggests the audience is still unclear. A smaller step can help before returning to the full prompt.',
+      nextQuestionId: 'q-goal',
+    }
   },
   async sendTutorMessage(_questionId, message, signal) {
     await pause(signal, 800)
     return {
       id: crypto.randomUUID(),
       role: 'assistant',
-      text: /zielgruppe|leser|leserin|projektleitung/i.test(message)
-        ? 'Denk an die Person, die die Zusammenfassung erhält. Welche Entscheidung oder Handlung soll nach dem Lesen möglich sein?'
-        : /enthalt|kriter|prüf/i.test(message)
-          ? 'Nenne zwei Details, die die Zusammenfassung nützlich und leicht überprüfbar machen – zum Beispiel Entscheidungen und Zuständigkeiten.'
-          : 'Was weisst du schon über die lesende Person und den Zweck dieser Zusammenfassung? Beginne dort und ergänze dann ein Detail, das die KI an den Notizen prüfen kann.',
+      text: /audience|reader|lead/i.test(message)
+        ? 'Think about the person who receives the summary. What decision or action should they be able to take after reading it?'
+        : /include|criteria|check/i.test(message)
+          ? 'Try naming two details that would make the summary useful and easy to verify, such as decisions and owners.'
+          : 'What do you already know about the reader and the purpose of this summary? Start there, then add one detail the AI can check against the notes.',
     }
   },
   async rateDifficulty(questionId, difficulty, signal) {
@@ -138,6 +186,7 @@ async function request<T>(path: string, init: RequestInit = {}, parent?: AbortSi
       const payload = await response.json().catch(() => ({})) as { detail?: string; message?: string }
       throw new ApiError(payload.detail ?? payload.message ?? `Request failed (${response.status})`, response.status)
     }
+    if (response.status === 204) return undefined as T
     return await response.json() as T
   } catch (error) {
     if (error instanceof ApiError) throw error
@@ -164,19 +213,10 @@ const backendApi: LearningApi = {
   },
   renameSource: (topicId, sourceId, name, signal) => request(`/topics/${encodeURIComponent(topicId)}/sources/${encodeURIComponent(sourceId)}`, { method: 'PATCH', body: JSON.stringify({ name }) }, signal),
   deleteSource: (topicId, sourceId, signal) => request(`/topics/${encodeURIComponent(topicId)}/sources/${encodeURIComponent(sourceId)}`, { method: 'DELETE' }, signal),
+  deleteTopic: (id, signal) => request(`/topics/${encodeURIComponent(id)}`, { method: 'DELETE' }, signal),
   scopeTopic: (id, message, history, signal) => request(`/topics/${encodeURIComponent(id)}/scope`, { method: 'POST', body: JSON.stringify({ message, history }) }, signal),
   updateContext: (id, context, signal) => request(`/topics/${encodeURIComponent(id)}/context`, { method: 'PATCH', body: JSON.stringify(context) }, signal),
-  submitAnswer: (input, signal) => {
-    const { attachment, ...payloadWithText } = input
-    const payload = { ...payloadWithText, attachmentText: undefined }
-    if (attachment) {
-      const body = new FormData()
-      body.append('file', attachment)
-      body.append('submission', JSON.stringify(payload))
-      return request('/questions/answer', { method: 'POST', body }, signal)
-    }
-    return request('/questions/answer', { method: 'POST', body: JSON.stringify(payload) }, signal)
-  },
+  submitAnswer: (input, signal) => request('/questions/answer', { method: 'POST', body: JSON.stringify(input) }, signal),
   async rateDifficulty(questionId, difficulty, signal) {
     await request(`/questions/${encodeURIComponent(questionId)}/difficulty`, { method: 'PATCH', body: JSON.stringify({ difficulty }) }, signal)
   },
