@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion, type Variants } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion, type Variants } from 'framer-motion'
 import {
   ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, CheckCircle2,
   ChevronDown, ChevronRight, Clock3, FileText, Flame, GraduationCap, Lightbulb, LockKeyhole,
@@ -15,9 +15,9 @@ import { Switch } from '@/components/ui/switch'
 import { Select as UISelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ErrorNotice, LoadingCard, LoadingInline, SavedNotice } from '@/components/feedback'
-import { getStoredTopic, isDemoMode, learningApi, saveStoredTopic } from '@/lib/api'
+import { getDeletedTopicIds, getStoredTopic, isDemoMode, learningApi, saveStoredTopic } from '@/lib/api'
 import { bloomStages, initialDashboard, initialTopic, refreshEligibility } from '@/lib/fixtures'
 import { readLearnerContext, writeLearnerContext } from '@/lib/storage'
 import type { AnswerSubmission, BloomStage, ChatMessage, DashboardData, LearningQuestion, ReviewResult, Topic } from '@/lib/types'
@@ -123,8 +123,16 @@ function App() {
           } catch { /* Ignore an invalid local cache entry and keep loading the rest. */ }
         }
       }
-      const combined = [...storedTopics, ...data.topics].filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index)
-      setDashboard({ ...data, topics: combined })
+      const deletedIds = isDemoMode ? new Set(getDeletedTopicIds()) : new Set<string>()
+      const combined = [...storedTopics, ...data.topics].filter((item, index, all) => !deletedIds.has(item.id) && all.findIndex((candidate) => candidate.id === item.id) === index)
+      const lastSessionTopic = combined.find((item) => item.id === data.lastSession.topicId)
+      const nextTopic = lastSessionTopic ?? combined[0]
+      const lastSession = lastSessionTopic
+        ? data.lastSession
+        : nextTopic
+          ? { topicId: nextTopic.id, title: nextTopic.title, detail: nextTopic.questions[0]?.title ?? 'Lernplan ansehen', progress: nextTopic.progress }
+          : { topicId: '', title: 'Noch kein Lernthema', detail: 'Füge Lernmaterial hinzu, um zu starten.', progress: 0 }
+      setDashboard({ ...data, topics: combined, lastSession })
       const primary = combined[0] ?? initialTopic
       setTopic(primary)
       setContextDraft(isDemoMode ? readLearnerContext(primary.context) : primary.context)
@@ -149,7 +157,7 @@ function App() {
     setSetupDone(isDemoMode ? window.localStorage.getItem(readyKey) === 'true' || topic.id === initialTopic.id : topic.nodes.length > 0 && topic.questions.length > 0)
   }, [readyKey, topic.id, topic.nodes.length, topic.questions.length])
 
-  const openTopic = useCallback(async (topicId: string, isNew = false) => {
+  const openTopic = useCallback(async (topicId: string, isNew = false, focus?: { nodeId: string; partner: boolean }) => {
     scrollToTop()
     setPage('topic')
     setTopicError('')
@@ -159,7 +167,8 @@ function App() {
     setSetupDone(!isNew)
     setPlanChatOpen(false)
     setSetupMessages(defaultSetupMessages)
-    setSelectedNode(null)
+    setSelectedNode(focus?.nodeId ?? null)
+    setQuestionFilters({ short: false, partner: focus?.partner ?? false, stage: 'All stages' })
     try {
       const next = await learningApi.getTopic(topicId)
       setTopic(next)
@@ -249,19 +258,52 @@ function App() {
     }
   }
 
-  function startQuestion(question: LearningQuestion) {
+  async function deleteTopicFromDashboard(topicId: string): Promise<boolean> {
+    setError('')
+    try {
+      await learningApi.deleteTopic(topicId)
+      setDashboard((current) => {
+        const topics = current.topics.filter((item) => item.id !== topicId)
+        const lastSessionTopic = topics.find((item) => item.id === current.lastSession.topicId) ?? topics[0]
+        const lastSession = lastSessionTopic
+          ? current.lastSession.topicId === lastSessionTopic.id
+            ? current.lastSession
+            : { topicId: lastSessionTopic.id, title: lastSessionTopic.title, detail: lastSessionTopic.questions[0]?.title ?? 'Lernplan ansehen', progress: lastSessionTopic.progress }
+          : { topicId: '', title: 'Noch kein Lernthema', detail: 'Füge Lernmaterial hinzu, um zu starten.', progress: 0 }
+        return { ...current, topics, lastSession }
+      })
+      return true
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Das Thema konnte nicht gelöscht werden.')
+      return false
+    }
+  }
+
+  function startQuestion(question: LearningQuestion, withTutor = false) {
     setActiveQuestion(question)
     setAnswer('')
     setHintsUsed(0)
     setHintsOpen(false)
-    setTutorOpen(false)
+    setTutorOpen(withTutor)
     setReviewTutorOpen(false)
-    setTutorMessages([{ id: 'tutor-intro', role: 'assistant', text: 'I can help you think it through without giving away the answer. What part feels unclear?' }])
+    setTutorMessages([{ id: 'tutor-intro', role: 'assistant', text: withTutor ? 'Wir klären die Aufgabe mit kurzen Rückfragen. Für wen ist die Zusammenfassung, wie lang soll sie sein und welche Angaben müssen hinein?' : 'Ich helfe dir mit Rückfragen, ohne die Antwort vorwegzunehmen. Was ist noch unklar?' }])
     setReview(null)
     setReviewError('')
     setDifficulty(null)
     setPage('question')
     scrollToTop()
+  }
+
+  function startDashboardMission(topicId: string, questionId: string, withTutor: boolean) {
+    const selectedTopic = dashboard.topics.find((item) => item.id === topicId)
+    const question = selectedTopic?.questions.find((item) => item.id === questionId)
+    if (!selectedTopic || !question) return
+    setTopic(selectedTopic)
+    setContextDraft(isDemoMode ? readLearnerContext(selectedTopic.context) : selectedTopic.context)
+    setTopicError('')
+    setSelectedNode(question.topicId)
+    setQuestionFilters({ short: false, partner: false, stage: 'All stages' })
+    startQuestion(question, withTutor)
   }
 
   async function submitAnswer(event: FormEvent<HTMLFormElement>) {
@@ -322,13 +364,13 @@ function App() {
 
   const selectedTopicNode = topic.nodes.find((node) => node.id === selectedNode) ?? null
   return <div className="app-frame min-h-screen bg-background text-foreground">
-    <input ref={fileInputRef} className="sr-only" type="file" accept=".pdf,.doc,.docx,.txt,.md,.ppt,.pptx" onChange={(event) => handleFileChange(event)} aria-label="Choose lecture notes to upload" />
+    <input ref={fileInputRef} className="sr-only" type="file" accept=".pdf,.doc,.docx,.txt,.md,.ppt,.pptx" onChange={(event) => handleFileChange(event)} aria-label="Lernmaterial zum Hochladen auswählen" />
     <AppHeader learnerName={dashboard.learnerName} />
     <main className="mx-auto min-h-[calc(100vh-88px)] w-full max-w-[1440px] px-4 pb-16 pt-3 sm:px-6 sm:pt-4 lg:px-10 lg:pt-5">
       {error && <div className="mb-6"><ErrorNotice message={error} onRetry={() => { setError(''); if (page === 'dashboard') void loadHome() }} /></div>}
       {appLoading ? <LoadingCard title="Opening Lea’s learning space" detail="Gathering topics and recent progress…" /> : <AnimatePresence mode="wait" initial={false}>
         <motion.div key={page} variants={pageVariants} initial="initial" animate="animate" exit="exit">
-          {page === 'dashboard' && <>{uploadingSource && <div className="mb-5"><LoadingInline label="Preparing your learning material…" /></div>}<DashboardPage dashboard={dashboard} busy={busy} onOpenTopic={(id) => void openTopic(id)} onUpload={() => fileInputRef.current?.click()} onSetWeeklyGoal={async (minutes) => {
+          {page === 'dashboard' && <>{uploadingSource && <div className="mb-5"><LoadingInline label="Preparing your learning material…" /></div>}<DashboardPage dashboard={dashboard} busy={busy} onOpenTopic={(id) => void openTopic(id)} onStartSuggested={(topicId, questionId, withTutor) => startDashboardMission(topicId, questionId, withTutor)} onDeleteTopic={deleteTopicFromDashboard} onUpload={() => fileInputRef.current?.click()} onSetWeeklyGoal={async (minutes) => {
             try {
               const weeklyGoalMinutes = await learningApi.updateWeeklyGoal(minutes)
               setDashboard((current) => ({ ...current, weeklyGoalMinutes }))
@@ -352,26 +394,28 @@ function App() {
         </motion.div>
       </AnimatePresence>}
     </main>
-    <footer className="mx-auto max-w-[1440px] px-4 pb-8 text-center text-xs tracking-wide text-muted-foreground sm:px-6 lg:px-10">CHALLENGE <span className="mx-2 text-border">→</span> ACTION <span className="mx-2 text-border">→</span> FEEDBACK <span className="mx-2 text-border">→</span> ADAPTATION <span className="mx-2 text-border">→</span> PROGRESS</footer>
+    <footer className="mx-auto max-w-[1440px] px-4 pb-8 pt-1 text-center text-[11px] leading-5 text-muted-foreground sm:px-6 lg:px-10"><p>Synthetisches Beispielprofil Lea · Übungsfortschritt zeigt Lernaktivitäten, keine Kompetenzdiagnose.</p></footer>
   </div>
 }
 
 function AppHeader({ learnerName }: { learnerName: string }) {
+  const [notice, setNotice] = useState<'settings' | 'logout' | null>(null)
   return <header className="app-header border-b border-border/80 bg-card/90 backdrop-blur-xl">
     <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-10">
       <div className="flex min-w-0 items-center gap-3">
         <span className="brand-mark flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><GraduationCap className="size-5" aria-hidden="true" /></span>
-        <div className="min-w-0"><p className="brand-name truncate text-lg font-semibold tracking-tight">learn<span>45</span></p><p className="hidden text-[11px] text-muted-foreground sm:block">A little better, every session</p></div>
+        <div className="min-w-0"><p className="brand-name truncate text-lg font-semibold tracking-tight">learn<span>45</span></p><p className="hidden text-[11px] text-muted-foreground sm:block">Lernen, das weiterbringt</p></div>
       </div>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="outline" aria-label={`${learnerName} profile menu`} aria-haspopup="menu"><span className="inline-flex items-center gap-2"><span className="flex size-7 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">{learnerName.slice(0, 1)}</span><span className="hidden sm:inline">{learnerName}</span><ChevronDown className="size-4" aria-hidden="true" /></span></Button>} />
+        <DropdownMenuTrigger render={<Button variant="outline" aria-label={`${learnerName} Profilmenü`} aria-haspopup="menu"><span className="inline-flex items-center gap-2"><span className="flex size-7 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">{learnerName.slice(0, 1)}</span><span className="hidden sm:inline">{learnerName}</span><ChevronDown className="size-4" aria-hidden="true" /></span></Button>} />
         <DropdownMenuContent align="end" className="w-64">
-          <DropdownMenuLabel><span className="block text-sm font-semibold text-foreground">{learnerName}’s profile</span><span className="mt-0.5 block text-xs font-normal text-muted-foreground">Single-learner demo</span></DropdownMenuLabel>
+          <DropdownMenuGroup><DropdownMenuLabel><span className="block text-sm font-semibold text-foreground">{learnerName} · Profil</span><span className="mt-0.5 block text-xs font-normal text-muted-foreground">Demo mit Lea</span></DropdownMenuLabel></DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem disabled><Settings2 aria-hidden="true" /> Settings <span className="ml-auto text-xs text-muted-foreground">Preview only</span></DropdownMenuItem>
-          <DropdownMenuItem disabled><LogOut aria-hidden="true" /> Sign out <span className="ml-auto text-xs text-muted-foreground">Preview only</span></DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setNotice('settings')}><Settings2 aria-hidden="true" /> Einstellungen</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setNotice('logout')}><LogOut aria-hidden="true" /> Abmelden</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {notice && <div className="fixed inset-0 z-[120] grid place-items-center bg-foreground/30 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setNotice(null) }}><section role="dialog" aria-modal="true" aria-labelledby="profile-action-title" className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 text-foreground shadow-2xl"><p className="eyebrow">LEA · DEMO</p><h2 id="profile-action-title" className="mt-1 text-lg font-semibold">{notice === 'settings' ? 'Einstellungen' : 'Abmelden'}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{notice === 'settings' ? 'Deine Lerneinstellungen kannst du im Lernbereich über „Lernkontext bearbeiten“ anpassen.' : 'Du bist in einer Demo ohne echtes Benutzerkonto. Es wird kein Konto abgemeldet.'}</p><div className="mt-5 flex justify-end"><Button variant="primary" onClick={() => setNotice(null)}>Verstanden</Button></div></section></div>}
     </div>
   </header>
 }
@@ -383,7 +427,7 @@ function SectionHeading({ eyebrow, title, detail, action }: { eyebrow?: string; 
 }
 
 function ProgressBar({ value, label, className = '' }: { value: number; label?: string; className?: string }) {
-  return <Progress value={value} aria-label={label ?? 'Overall progress'} className={`progress-bar ${className}`}><div className="mb-2 flex items-center justify-between text-xs"><span className="text-muted-foreground">{label ?? 'Overall progress'}</span><span className="font-semibold tabular-nums">{value}%</span></div></Progress>
+  return <Progress value={value} aria-label={label ?? 'Gesamtfortschritt'} className={`progress-bar ${className}`}><div className="mb-2 flex items-center justify-between text-xs"><span className="text-muted-foreground">{label ?? 'Gesamtfortschritt'}</span><span className="font-semibold tabular-nums">{value}%</span></div></Progress>
 }
 
 function formatExamCountdown(date: string) {
@@ -394,13 +438,44 @@ function formatExamCountdown(date: string) {
   return remaining > 0 ? `Exam in ${remaining} days` : remaining === 0 ? 'Exam today' : 'Exam date passed'
 }
 
-function DashboardPage({ dashboard, busy, onOpenTopic, onUpload, onContinue, onSetWeeklyGoal }: { dashboard: DashboardData; busy: boolean; onOpenTopic: (id: string) => void; onUpload: () => void; onContinue: () => void; onSetWeeklyGoal: (minutes: number) => Promise<boolean> }) {
+function DashboardPage({ dashboard, busy, onOpenTopic, onStartSuggested, onDeleteTopic, onUpload, onContinue, onSetWeeklyGoal }: { dashboard: DashboardData; busy: boolean; onOpenTopic: (id: string) => void; onStartSuggested: (topicId: string, questionId: string, withTutor: boolean) => void; onDeleteTopic: (id: string) => Promise<boolean>; onUpload: () => void; onContinue: () => void; onSetWeeklyGoal: (minutes: number) => Promise<boolean> }) {
+  const reduceMotion = useReducedMotion()
   const [goalMenuOpen, setGoalMenuOpen] = useState(false)
+  const [topicToDelete, setTopicToDelete] = useState<Topic | null>(null)
+  const [deletingTopic, setDeletingTopic] = useState(false)
   const [goalSaving, setGoalSaving] = useState(false)
   const [goalMenuPosition, setGoalMenuPosition] = useState<{ top: number; left: number } | null>(null)
   const goalAnchorRef = useRef<HTMLDivElement>(null)
   const goalMenuRef = useRef<HTMLDivElement>(null)
   const percent = Math.min(100, Math.round(dashboard.studyMinutes / dashboard.weeklyGoalMinutes * 100))
+  const hasTopics = dashboard.topics.length > 0
+  const suggestionTopic = dashboard.topics.find((item) => item.id === dashboard.lastSession.topicId) ?? dashboard.topics[0]
+  const suggestionNode = suggestionTopic?.nodes.filter((node) => node.eligible && node.progress < 100).sort((left, right) => left.progress - right.progress)[0] ?? suggestionTopic?.nodes[0]
+  const eligibleQuestions = suggestionTopic ? suggestionTopic.questions.filter((question) => suggestionTopic.nodes.some((node) => node.id === question.topicId && node.eligible)) : []
+  const suggestionQuestion = eligibleQuestions.find((question) => question.topicId === suggestionNode?.id && question.status !== 'completed') ?? eligibleQuestions[0] ?? suggestionTopic?.questions[0]
+  const coachingQuestion = suggestionTopic?.questions.find((question) => question.id === 'q-criteria') ?? suggestionQuestion
+  const independentQuestion = suggestionTopic?.questions.find((question) => question.id === 'q-revise') ?? suggestionQuestion
+  const practicedSteps = suggestionTopic?.nodes.filter((node) => node.progress > 0).length ?? 0
+  const totalSteps = suggestionTopic?.nodes.length ?? 0
+  const coachingMinutes = Number.parseInt(coachingQuestion?.duration ?? '5 min', 10) || 5
+  const practiceMinutes = Number.parseInt(independentQuestion?.duration ?? '7 min', 10) || 7
+  const missionMinutes = coachingMinutes + practiceMinutes
+  const isLeaScenario = suggestionTopic?.id === initialTopic.id
+  const suggestionReason = isLeaScenario
+    ? 'Bei zwei Versuchen blieb „kurz und professionell“ noch zu ungenau. Der KI-Coach klärt Zielgruppe, Länge und Pflichtangaben. Danach formulierst du den Auftrag selbst mit höchstens fünf Stichpunkten und prüfst ihn an neuen Notizen.'
+    : `Der Vorschlag knüpft an „${dashboard.lastSession.detail}“ an. Der KI-Coach hilft dir kurz beim nächsten Schritt; danach probierst du das Gelernte selbst an einem neuen Fall aus.`
+  const missionStages = [
+    { id: 'attempt', state: 'done', title: 'Allein versucht', detail: 'Zwei ungenaue Versuche' },
+    { id: 'coach', state: 'current', title: 'Mit KI klären', detail: 'Zielgruppe · Länge · Muss-Inhalte' },
+    { id: 'apply', state: 'next', title: 'Allein anwenden', detail: 'Neue Notizen prüfen · ' + practiceMinutes + ' Min.' },
+  ] as const
+  useEffect(() => {
+    if (!topicToDelete) return
+    document.getElementById('cancel-topic-delete')?.focus()
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !deletingTopic) setTopicToDelete(null) }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [topicToDelete, deletingTopic])
   useEffect(() => {
     if (!goalMenuOpen) { setGoalMenuPosition(null); return }
     const positionMenu = () => {
@@ -435,32 +510,80 @@ function DashboardPage({ dashboard, busy, onOpenTopic, onUpload, onContinue, onS
       document.removeEventListener('keydown', closeOnEscape)
     }
   }, [goalMenuOpen])
+  async function confirmTopicDelete() {
+    if (!topicToDelete || deletingTopic) return
+    setDeletingTopic(true)
+    try {
+      const deleted = await onDeleteTopic(topicToDelete.id)
+      if (deleted) setTopicToDelete(null)
+    } finally {
+      setDeletingTopic(false)
+    }
+  }
+
   return <div className="space-y-7">
-    <section className="dashboard-hero relative overflow-hidden rounded-[1.75rem] bg-primary px-5 py-6 text-primary-foreground sm:px-8 sm:py-8">
-      <div className="hero-orb hero-orb-one" /><div className="hero-orb hero-orb-two" />
-      <div className="relative z-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,.72fr)] lg:items-center">
-        <div className="max-w-2xl"><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[.15em] text-primary-foreground/70"><Sparkles className="size-4" aria-hidden="true" /> Welcome back</p><h1 className="mt-2 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">Good to see you, {dashboard.learnerName}.</h1><p className="mt-2 text-sm leading-6 text-primary-foreground/80">You’ve completed {dashboard.completedSessions} sessions and kept a {dashboard.streak}-day streak. A short practice today keeps your progress moving.</p>
+    <section className="dashboard-hero relative overflow-hidden rounded-[1.75rem] bg-primary px-5 py-6 text-primary-foreground sm:px-8 sm:py-8 lg:px-10 lg:py-9">
+      <div className="hero-orb hero-orb-one" aria-hidden="true" /><div className="hero-orb hero-orb-two" aria-hidden="true" /><div className="hero-orb hero-orb-three" aria-hidden="true" /><div className="hero-orb hero-orb-four" aria-hidden="true" />
+      <div className="relative z-10 grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(300px,.68fr)] lg:items-center lg:gap-12">
+        <div className="max-w-2xl"><p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[.18em] text-primary-foreground/70"><span className="flex size-7 items-center justify-center rounded-full border border-primary-foreground/25"><Sparkles className="size-3.5" aria-hidden="true" /></span> Dein Lernraum · Lea <span className="rounded-full border border-primary-foreground/20 px-2 py-1 text-[9px] tracking-[.12em]">SYNTHETISCHE DEMO</span></p><h1 className="mt-5 max-w-xl text-4xl font-semibold leading-[1.04] tracking-[-.045em] sm:text-5xl">Wissen wächst<br /><span className="text-primary-foreground/60">Schritt für Schritt.</span></h1><p className="mt-4 max-w-lg text-sm leading-6 text-primary-foreground/80">Schön, dass du wieder da bist. Deine Übungen zeigen, was du ausprobiert hast und welcher nächste Schritt passen könnte.</p>
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-primary-foreground/75"><span className="inline-flex items-center gap-2"><CheckCircle2 className="size-4 text-sky-200" aria-hidden="true" /> {dashboard.completedSessions} Einheiten geübt</span></div>
         </div>
-        <div className="hero-stat-card rounded-2xl border border-primary-foreground/15 bg-primary-foreground/10 p-4 backdrop-blur-sm sm:p-5">
-          <div className="flex items-start justify-between gap-3"><div><span className="flex items-center gap-1.5 text-xs text-primary-foreground/75"><Clock3 className="size-3.5" aria-hidden="true" /> This week</span><p className="mt-1 text-xl font-semibold">{dashboard.studyMinutes}<span className="ml-1 text-sm font-normal text-primary-foreground/75">of {dashboard.weeklyGoalMinutes} min</span></p></div><div className="text-right"><span className="flex items-center justify-end gap-1.5 text-xs text-primary-foreground/75"><Flame className="size-3.5" aria-hidden="true" /> Streak</span><p className="mt-1 text-xl font-semibold">{dashboard.streak}<span className="ml-1 text-sm font-normal text-primary-foreground/75">days</span></p></div></div>
-          <div className="mt-4"><div className="mb-2 flex justify-between gap-2 text-xs text-primary-foreground/75"><span>Weekly learning goal</span><span>{percent}%</span></div><div className="h-2 rounded-full bg-primary-foreground/20" role="progressbar" aria-label="Weekly learning goal" aria-valuenow={Math.min(100,percent)} aria-valuemin={0} aria-valuemax={100}><motion.div className="h-2 rounded-full bg-primary-foreground" initial={false} animate={{ width: `${percent}%` }} transition={{ duration: .5 }} /></div></div>
-          <div className="mt-3 flex items-center justify-between gap-2"><p className="text-xs text-primary-foreground/75">{Math.max(0, dashboard.weeklyGoalMinutes - dashboard.studyMinutes)} min left this week</p><div ref={goalAnchorRef}><Button variant="secondary" className="px-3 py-2 text-xs" aria-expanded={goalMenuOpen} aria-haspopup="menu" onClick={() => setGoalMenuOpen((open) => !open)}>Edit goal</Button></div></div>
+        <div className="hero-rhythm-card rounded-[1.4rem] border border-primary-foreground/15 p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-4"><div><span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[.14em] text-primary-foreground/70"><Clock3 className="size-3.5 text-sky-200" aria-hidden="true" /> Dein Wochenrhythmus</span><p className="mt-2 text-sm text-primary-foreground/75">Jeder Lernmoment zählt. Du gibst das Tempo vor.</p></div><div className="hero-progress-value" role="progressbar" aria-label="Wochenziel" aria-valuenow={Math.min(100, percent)} aria-valuemin={0} aria-valuemax={100}><span>{percent}%</span><span>erreicht</span></div></div>
+          <div className="mt-4 border-t border-primary-foreground/15 pt-4"><div className="flex items-baseline justify-between gap-3"><p className="text-2xl font-semibold tracking-tight">{dashboard.studyMinutes}<span className="ml-1 text-sm font-normal text-primary-foreground/65">/ {dashboard.weeklyGoalMinutes} Min.</span></p><p className="text-right text-xs text-primary-foreground/70">{Math.max(0, dashboard.weeklyGoalMinutes - dashboard.studyMinutes)} Min. bis zum Ziel</p></div><div className="mt-3 flex items-center justify-between gap-3"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-primary-foreground/20" aria-hidden="true"><motion.div className="h-full rounded-full bg-sky-200" initial={{ width: reduceMotion ? `${percent}%` : '0%' }} animate={{ width: `${percent}%` }} transition={{ duration: reduceMotion ? 0 : 1.15, ease: 'easeOut' }} /></div><div ref={goalAnchorRef}><Button variant="secondary" className="px-3 py-2 text-xs" aria-expanded={goalMenuOpen} aria-haspopup="menu" onClick={() => setGoalMenuOpen((open) => !open)}>Ziel ändern</Button></div></div></div>
         </div>
       </div>
     </section>
 
-    <Card className="panel mx-auto flex w-full flex-col justify-between gap-0 sm:flex-row sm:items-center sm:gap-6 lg:w-fit lg:max-w-full"><div className="min-w-0"><p className="eyebrow">CONTINUE</p><h2 className="mt-1 text-xl font-semibold tracking-tight">Pick up where you left off</h2><h3 className="mt-3 font-semibold">{dashboard.lastSession.title}</h3><p className="mt-1 text-sm text-muted-foreground">{dashboard.lastSession.detail} · {dashboard.lastSession.progress}% topic progress</p><ProgressBar value={dashboard.lastSession.progress} className="mt-4 max-w-lg" /></div><Button variant="primary" className="mt-5 shrink-0 sm:mt-0" disabled={busy} onClick={onContinue}><span className="inline-flex items-center gap-2">Continue session <ArrowRight className="size-4" aria-hidden="true" /></span></Button></Card>
+    <div className="continue-row grid gap-4 lg:grid-cols-[minmax(0,1fr)_11rem] lg:items-center"><Card className="continue-card panel relative mx-auto flex w-full flex-col justify-between gap-5 overflow-hidden sm:flex-row sm:items-center sm:gap-8"><div className="continue-card-mark" aria-hidden="true">45</div><div className="relative min-w-0 flex-1"><p className="eyebrow">LETZTE LERNEINHEIT</p><h2 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">{hasTopics ? 'Dort weitermachen, wo du warst' : 'Lege ein neues Thema an'}</h2>{hasTopics ? <><div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm"><span className="font-semibold">{dashboard.lastSession.title}</span><span className="text-muted-foreground">{dashboard.lastSession.detail}</span></div><ProgressBar value={dashboard.lastSession.progress} label="Übungsstand" className="mt-4 max-w-lg" /></> : <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">Füge Lernmaterial hinzu, um einen neuen Lernbereich und deinen Lernplan anzulegen.</p>}</div><Button variant="primary" className="relative mt-1 shrink-0 sm:mt-0" disabled={busy} onClick={hasTopics ? onContinue : onUpload}><span className="inline-flex items-center gap-2">{hasTopics ? 'Lerneinheit fortsetzen' : 'Lernmaterial auswählen'} <ArrowRight className="size-4" aria-hidden="true" /></span></Button></Card><Card className="streak-card panel mx-auto flex size-36 flex-col items-center justify-center gap-1 border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-100 p-4 lg:mx-0 lg:size-44"><Flame className="streak-flame size-20 text-orange-500" aria-hidden="true" /><div className="text-center"><p className="text-4xl font-bold leading-none tracking-tight text-orange-950">{dashboard.streak}</p><p className="mt-1 text-xs font-semibold uppercase tracking-[.1em] text-orange-800">Lerntage</p></div></Card></div>
 
     <section>
-      <SectionHeading eyebrow="YOUR LIBRARY" title="Choose a topic" detail={`${dashboard.topics.length} ${dashboard.topics.length === 1 ? 'topic' : 'topics'} ready to continue`} />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{dashboard.topics.map((item, index) => <motion.article key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .05 }} className="topic-card panel group flex min-h-56 flex-col justify-between transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg motion-reduce:transition-none">
-          <div><div className="mb-5 flex items-start justify-between gap-2"><span className="flex size-11 items-center justify-center rounded-2xl bg-accent text-primary"><BookOpen className="size-5" aria-hidden="true" /></span><span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{item.subject}</span></div><h3 className="text-lg font-semibold tracking-tight">{item.title}</h3><p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">{item.description}</p></div>
-          <div className="mt-5"><ProgressBar value={item.progress} label={`${item.nodes.length} subtopics · ${item.sources.length} sources`} /><div className="mt-4 flex items-center justify-between"><span className="text-xs text-muted-foreground">{item.updatedLabel}</span><Button variant="ghost" onClick={() => onOpenTopic(item.id)}><span className="inline-flex items-center gap-1.5">Open topic <ArrowRight className="size-4" aria-hidden="true" /></span></Button></div></div>
+      <SectionHeading eyebrow="DEINE LERNBEREICHE" title="Woran möchtest du arbeiten?" detail={dashboard.topics.length === 1 ? '1 Thema wartet auf dich' : `${dashboard.topics.length} Themen warten auf dich`} />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{dashboard.topics.map((item, index) => <motion.article key={item.id} initial={reduceMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : index * .12 + .15, duration: reduceMotion ? 0 : .45, ease: 'easeOut' }} className="topic-card panel group flex min-h-56 flex-col justify-between transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl motion-reduce:transition-none">
+          <div><div className="mb-5 flex items-start justify-between gap-2"><span className="topic-card-mark flex size-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700"><BookOpen className="size-5" aria-hidden="true" /></span><div className="flex items-center gap-2"><span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{item.subject}</span><Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive focus-visible:ring-destructive/40" aria-label={`Thema „${item.title}“ löschen`} title="Thema löschen" disabled={deletingTopic} onClick={() => setTopicToDelete(item)}><Trash2 className="size-3.5" aria-hidden="true" /></Button></div></div><h3 className="text-lg font-semibold tracking-tight">{item.title}</h3><p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">{item.description}</p></div>
+          <div className="mt-5"><ProgressBar value={item.progress} label={`${item.nodes.filter((node) => node.progress > 0).length} von ${item.nodes.length} Lernschritten geübt · ${item.sources.length} Materialien`} /><div className="mt-4 flex items-center justify-between"><span className="text-xs text-muted-foreground">{item.updatedLabel}</span><Button variant="ghost" onClick={() => onOpenTopic(item.id)}><span className="inline-flex items-center gap-1.5">Thema öffnen <ArrowRight className="size-4" aria-hidden="true" /></span></Button></div></div>
         </motion.article>)}
-        <motion.article initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: dashboard.topics.length * .05 }} className="add-topic-card flex min-h-56 flex-col justify-between rounded-[1.5rem] border border-dashed border-border bg-card p-5 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg motion-reduce:transition-none sm:p-6"><div><div className="mb-5 flex size-11 items-center justify-center rounded-2xl bg-muted text-primary"><Plus className="size-5" aria-hidden="true" /></div><p className="eyebrow">GROW YOUR LIBRARY</p><h3 className="mt-1 text-lg font-semibold tracking-tight">Start a new topic</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Add lecture notes to create a focused learning space and plan.</p></div><div className="mt-5"><Button variant="outline" disabled={busy} onClick={onUpload}><span className="inline-flex items-center gap-2"><Upload className="size-4" aria-hidden="true" /> Choose notes</span></Button></div></motion.article>
+        <motion.article initial={reduceMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : dashboard.topics.length * .12 + .15, duration: reduceMotion ? 0 : .45, ease: 'easeOut' }} className="add-topic-card flex min-h-56 flex-col justify-between rounded-[1.5rem] border border-dashed border-border bg-card p-5 transition-[transform,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl motion-reduce:transition-none sm:p-6"><div><div className="add-topic-mark mb-5 flex size-11 items-center justify-center rounded-2xl bg-orange-100 text-orange-700"><Plus className="size-5" aria-hidden="true" /></div><p className="eyebrow">LERNBEREICHE ERWEITERN</p><h3 className="mt-1 text-lg font-semibold tracking-tight">Neues Fach oder neuen Ordner anlegen</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Füge Lernmaterial hinzu, um einen neuen Lernbereich anzulegen. Der Lernagent erstellt passende Lernfragen und einen Lernplan.</p></div><div className="mt-5"><Button variant="outline" disabled={busy} onClick={onUpload}><span className="inline-flex items-center gap-2"><Upload className="size-4" aria-hidden="true" /> Notizen auswählen</span></Button></div></motion.article>
       </div>
     </section>
-    {goalMenuOpen && createPortal(<div id="weekly-goal-menu" ref={goalMenuRef} className="fixed z-[100] w-52 rounded-xl border border-border bg-card p-2 text-foreground shadow-xl" style={{ top: goalMenuPosition?.top ?? 0, left: goalMenuPosition?.left ?? 0, visibility: goalMenuPosition ? 'visible' : 'hidden', maxHeight: 'min(240px, calc(100dvh - 24px))', overflowY: 'auto' }} role="menu" aria-label="Choose a weekly goal"><p className="px-3 py-2 text-xs font-semibold text-muted-foreground">Weekly goal</p>{[60,120,180,240].map((minutes) => <Button key={minutes} variant={minutes === dashboard.weeklyGoalMinutes ? 'secondary' : 'ghost'} className="w-full justify-start px-3 py-2 text-sm" role="menuitem" disabled={goalSaving} onClick={async () => { setGoalSaving(true); const saved = await onSetWeeklyGoal(minutes); setGoalSaving(false); if (saved) setGoalMenuOpen(false) }}>{goalSaving ? <span className="inline-flex items-center gap-2"><span className="size-3 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none" />Saving</span> : `${minutes} minutes`}</Button>)}</div>, document.body)}
+    {suggestionTopic && coachingQuestion && independentQuestion && <motion.section initial={reduceMotion ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduceMotion ? 0 : .5, ease: 'easeOut' }}>
+      <SectionHeading eyebrow="VORSCHLAG AUS DEINEM LERNVERLAUF" title="Dein nächster Lernschritt" detail="Der Agent erklärt den Vorschlag. Du entscheidest, ob du mit KI oder allein startest." />
+      <Card className="mission-card panel gap-0 overflow-hidden p-0">
+        <div className="mission-card-glow" aria-hidden="true" />
+        <div className="relative grid lg:grid-cols-[minmax(0,1fr)_19rem]">
+          <div className="relative z-10 min-w-0 p-5 sm:p-7">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mission-pill mission-pill--signal"><Sparkles className="size-3.5" aria-hidden="true" /> 2 Versuche · gleiche Lücke</span>
+              <span className="mission-pill"><Clock3 className="size-3.5" aria-hidden="true" /> {missionMinutes} Min. · passt ins 15-Minuten-Fenster</span>
+            </div>
+            <h3 className="mt-4 text-xl font-semibold tracking-tight sm:text-2xl">Qualitätskriterien konkret machen</h3>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{suggestionReason}</p>
+            <div className="mt-6">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">Leas Lernweg</p>
+                <p className="text-xs font-medium text-foreground">{practicedSteps} von {totalSteps} Lernschritten geübt</p>
+              </div>
+              <ol aria-label="Leas Lernweg: zwei eigene Versuche, KI-Coaching, eigener Transfer" className="mission-steps grid gap-2 sm:grid-cols-3">
+                {missionStages.map((stage, index) => <motion.li key={stage.id} aria-current={stage.state === 'current' ? 'step' : undefined} initial={reduceMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: reduceMotion ? 0 : .08 * index, duration: reduceMotion ? 0 : .32 }} className={`mission-step mission-step--${stage.state}`}>
+                  <span className="mission-step-icon" aria-hidden="true">{stage.state === 'done' ? <CheckCircle2 className="size-4" /> : stage.state === 'current' ? <Sparkles className="size-4" /> : <Target className="size-4" />}</span>
+                  <span className="mission-step-copy"><span className="mission-step-title">{stage.title}</span><span className="mission-step-detail">{stage.detail}</span></span>
+                </motion.li>)}
+              </ol>
+            </div>
+            <div className="mission-progress mt-5" aria-label={`Übungsstand ${suggestionTopic.progress} Prozent; ${practicedSteps} von ${totalSteps} Lernschritten geübt`}>
+              <div className="mission-progress-track"><motion.span initial={reduceMotion ? false : { width: 0 }} animate={{ width: `${suggestionTopic.progress}%` }} transition={{ duration: reduceMotion ? 0 : .9, delay: reduceMotion ? 0 : .2, ease: 'easeOut' }} /></div>
+              <span className="mission-progress-value">{suggestionTopic.progress}% Übungsstand</span>
+            </div>
+          </div>
+          <aside className="mission-action-panel relative z-10 flex flex-col justify-center gap-3 p-5 sm:p-6">
+            <div><p className="eyebrow text-primary">JETZT EMPFOHLEN · {coachingMinutes} MIN.</p><h4 className="mt-1 text-lg font-semibold">Mit Rückfragen klären</h4><p className="mt-1 text-sm leading-5 text-muted-foreground">Zielgruppe, Länge und Pflichtangaben festlegen.</p></div>
+            <Button variant="primary" className="w-full" disabled={busy} onClick={() => onStartSuggested(suggestionTopic.id, coachingQuestion.id, true)}><span className="inline-flex items-center gap-2">Mit KI-Coach starten <ArrowRight className="size-4" aria-hidden="true" /></span></Button>
+            <Button variant="outline" className="w-full" disabled={busy} onClick={() => onStartSuggested(suggestionTopic.id, coachingQuestion.id, false)}>Lieber allein versuchen</Button>
+          </aside>
+        </div>
+      </Card>
+    </motion.section>}
+{topicToDelete && createPortal(<div className="fixed inset-0 z-[120] grid place-items-center bg-foreground/35 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !deletingTopic) setTopicToDelete(null) }}><section role="alertdialog" aria-modal="true" aria-labelledby="delete-topic-title" aria-describedby="delete-topic-description" className="w-full max-w-md rounded-2xl border border-border bg-card p-5 text-foreground shadow-2xl" onMouseDown={(event) => event.stopPropagation()}><p className="eyebrow text-destructive">THEMA LÖSCHEN</p><h2 id="delete-topic-title" className="mt-1 text-lg font-semibold">„{topicToDelete.title}“ löschen?</h2><p id="delete-topic-description" className="mt-2 text-sm leading-6 text-muted-foreground">Das Thema mit seinen Lernmaterialien, Fragen und Fortschritten wird dauerhaft entfernt. Diese Aktion kann nicht rückgängig gemacht werden.</p><div className="mt-5 flex flex-wrap justify-end gap-2"><Button id="cancel-topic-delete" variant="outline" disabled={deletingTopic} onClick={() => setTopicToDelete(null)}>Abbrechen</Button><Button variant="destructive" disabled={deletingTopic} onClick={() => void confirmTopicDelete()}>{deletingTopic ? <LoadingInline label="Wird gelöscht…" /> : <span className="inline-flex items-center gap-2"><Trash2 className="size-4" aria-hidden="true" /> Thema löschen</span>}</Button></div></section></div>, document.body)}    {goalMenuOpen && createPortal(<div id="weekly-goal-menu" ref={goalMenuRef} className="fixed z-[100] w-52 rounded-xl border border-border bg-card p-2 text-foreground shadow-xl" style={{ top: goalMenuPosition?.top ?? 0, left: goalMenuPosition?.left ?? 0, visibility: goalMenuPosition ? 'visible' : 'hidden', maxHeight: 'min(240px, calc(100dvh - 24px))', overflowY: 'auto' }} role="menu" aria-label="Wochenziel auswählen"><p className="px-3 py-2 text-xs font-semibold text-muted-foreground">Wochenziel</p>{[60,120,180,240].map((minutes) => <Button key={minutes} variant={minutes === dashboard.weeklyGoalMinutes ? 'secondary' : 'ghost'} className="w-full justify-start px-3 py-2 text-sm" role="menuitem" disabled={goalSaving} onClick={async () => { setGoalSaving(true); const saved = await onSetWeeklyGoal(minutes); setGoalSaving(false); if (saved) setGoalMenuOpen(false) }}>{goalSaving ? <span className="inline-flex items-center gap-2"><span className="size-3 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none" />Wird gespeichert</span> : `${minutes} Min.`}</Button>)}</div>, document.body)}
   </div>
 }
 

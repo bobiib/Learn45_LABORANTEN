@@ -13,8 +13,8 @@
   --popover-foreground: var(--foreground);
   --muted: oklch(0.947 0.014 102);
   --muted-foreground: oklch(0.5 0.022 151);
-  --primary: oklch(0.39 0.092 151);
-  --primary-foreground: oklch(0.99 0.005 145);
+  --primary: #A2CFFE;
+  --primary-foreground: #17324D;
   --secondary: oklch(0.9 0.033 147);
   --secondary-foreground: oklch(0.25 0.06 151);
   --accent: oklch(0.925 0.045 149);
@@ -25,7 +25,7 @@
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.88 0.018 112);
   --input: oklch(0.85 0.021 112);
-  --ring: oklch(0.52 0.12 150);
+  --ring: #4B8FC9;
   --radius: 1rem;
   --radius-xs: calc(var(--radius) - 0.75rem);
   --radius-sm: calc(var(--radius) - 0.5rem);
@@ -60,8 +60,9 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--background); }
+html { scroll-behavior: smooth; overflow-x: clip; }
+body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: clip; background: var(--background); }
+.app-frame { overflow-x: clip; }
 ::selection { background: var(--accent); color: var(--accent-foreground); }
 
 .panel {
@@ -78,11 +79,63 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--backgro
 .app-header { position: sticky; top: 0; z-index: 20; }
 .brand-mark { box-shadow: 0 5px 14px color-mix(in oklab, var(--primary) 22%, transparent); }
 .brand-name span { color: var(--primary); }
-.dashboard-hero { isolation: isolate; box-shadow: 0 18px 55px color-mix(in oklab, var(--primary) 20%, transparent); }
-.hero-orb { position: absolute; z-index: -1; border: 1px solid color-mix(in oklab, var(--primary-foreground) 12%, transparent); border-radius: 9999px; pointer-events: none; }
-.hero-orb-one { width: 440px; height: 440px; right: 4%; top: -70%; background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 12%, transparent), transparent 67%); }
-.hero-orb-two { width: 330px; height: 330px; right: 27%; bottom: -70%; background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 8%, transparent), transparent 68%); }
+.dashboard-hero { isolation: isolate; background-image: linear-gradient(128deg, color-mix(in oklab, white 8%, transparent), transparent 58%); box-shadow: 0 18px 55px color-mix(in oklab, var(--primary) 24%, transparent); }
+.hero-rhythm-card { background: color-mix(in oklab, var(--primary-foreground) 8%, transparent); box-shadow: inset 0 1px color-mix(in oklab, var(--primary-foreground) 12%, transparent); backdrop-filter: blur(10px); }
+.hero-progress-value { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; padding-top: .25rem; font-variant-numeric: tabular-nums; }
+.hero-progress-value span:first-child { font-size: 2rem; font-weight: 700; letter-spacing: -.06em; line-height: 1; }
+.hero-progress-value span:last-child { margin-top: .35rem; color: color-mix(in oklab, var(--primary-foreground) 70%, transparent); font-size: .65rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.continue-card { border-color: color-mix(in oklab, oklch(0.77 0.09 228) 34%, var(--border)); background: linear-gradient(105deg, color-mix(in oklab, oklch(0.94 0.035 225) 64%, var(--card)), var(--card) 62%); }
+.continue-card-mark { position: absolute; right: 9rem; top: -1.4rem; color: color-mix(in oklab, var(--primary) 5%, transparent); font-size: 9rem; font-weight: 800; letter-spacing: -.1em; line-height: 1; pointer-events: none; user-select: none; }
+.hero-orb { position: absolute; z-index: -1; border: 1px solid color-mix(in oklab, var(--primary-foreground) 20%, transparent); border-radius: 9999px; pointer-events: none; will-change: transform; }
+.hero-orb-one { width: 440px; height: 440px; left: -250px; top: -245px; background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 17%, transparent), transparent 67%); }
+.hero-orb-two { width: 330px; height: 330px; left: calc(42% - 165px); top: calc(100% - 120px); background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 13%, transparent), transparent 68%); }
+.hero-orb-three { width: 390px; height: 390px; left: calc(75% - 195px); top: -210px; background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 15%, transparent), transparent 68%); }
+.hero-orb-four { width: 285px; height: 285px; left: calc(100% - 107.5px); top: calc(78% - 142.5px); background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 13%, transparent), transparent 68%); }
+.hero-orb-one { animation: learning-drift-one 6s ease-in-out infinite; }
+.hero-orb-two { animation: learning-drift-two 7.5s ease-in-out infinite; }
+.hero-orb-three { animation: learning-drift-three 6.7s ease-in-out infinite; }
+.hero-orb-four { animation: learning-drift-four 8s ease-in-out infinite; }
+@keyframes learning-drift-one { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0) scale(1); } 35% { transform: translate3d(-10px, -8px, 0) rotate(-1deg) scale(1.015); } 70% { transform: translate3d(-18px, -14px, 0) rotate(-2deg) scale(1.035); } }
+@keyframes learning-drift-two { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0) scale(1); } 35% { transform: translate3d(10px, 8px, 0) rotate(1deg) scale(1.015); } 70% { transform: translate3d(18px, 14px, 0) rotate(2deg) scale(1.035); } }
+@keyframes learning-drift-three { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0) scale(1); } 35% { transform: translate3d(-10px, -8px, 0) rotate(-1deg) scale(1.015); } 70% { transform: translate3d(-18px, -14px, 0) rotate(-2deg) scale(1.035); } }
+@keyframes learning-drift-four { 0%, 100% { transform: translate3d(0, 0, 0) rotate(0) scale(1); } 35% { transform: translate3d(11px, 8px, 0) rotate(1deg) scale(1.015); } 70% { transform: translate3d(19px, 14px, 0) rotate(2deg) scale(1.035); } }
+@media (max-width: 900px) { .hero-orb-one { width: 250px; height: 250px; left: -125px; top: -135px; } .hero-orb-two { width: 190px; height: 190px; left: calc(36% - 95px); top: calc(100% - 50px); } .hero-orb-three { width: 220px; height: 220px; left: calc(73% - 110px); top: -118px; } .hero-orb-four { width: 170px; height: 170px; left: calc(100% - 65px); top: calc(78% - 85px); } }
+@media (max-width: 640px) { .hero-orb-one { width: 145px; height: 145px; left: -82.5px; top: -82.5px; } .hero-orb-two { width: 115px; height: 115px; left: calc(100% - 75px); top: calc(100% - 37.5px); } .hero-orb-three { width: 130px; height: 130px; left: calc(73% - 65px); top: -73px; } .hero-orb-four { width: 105px; height: 105px; left: calc(100% - 42.5px); top: calc(78% - 52.5px); } }
+.streak-card { --streak-core: #fde047; --streak-glow: #fb923c; position: relative; isolation: isolate; overflow: hidden; border-color: color-mix(in oklab, var(--streak-glow) 28%, var(--border)); box-shadow: 0 12px 32px color-mix(in oklab, var(--streak-glow) 12%, transparent); }
+.streak-card::before { position: absolute; z-index: -1; inset: 12%; border-radius: 9999px; background: radial-gradient(circle, color-mix(in oklab, var(--streak-core) 50%, transparent), transparent 70%); content: ""; animation: streak-halo 2.8s ease-in-out infinite; }
+.streak-flame { fill: color-mix(in oklab, #facc15 28%, transparent); stroke: #f97316; stroke-width: 1.7; filter: drop-shadow(0 0 5px color-mix(in oklab, var(--streak-core) 82%, transparent)) drop-shadow(0 0 13px color-mix(in oklab, var(--streak-glow) 68%, transparent)); animation: streak-flame-flow 1.35s cubic-bezier(.42, 0, .58, 1) infinite; transform-origin: 50% 90%; }
+@keyframes streak-flame-flow { 0%, 100% { transform: rotate(-1deg) scale(.99, 1.02); filter: drop-shadow(0 0 5px color-mix(in oklab, var(--streak-core) 72%, transparent)) drop-shadow(0 0 11px color-mix(in oklab, var(--streak-glow) 55%, transparent)); } 35% { transform: rotate(.8deg) scale(1.035, .99); filter: drop-shadow(0 0 8px color-mix(in oklab, var(--streak-core) 95%, transparent)) drop-shadow(0 0 16px color-mix(in oklab, var(--streak-glow) 76%, transparent)); } 68% { transform: rotate(-.6deg) scale(1, 1.045); filter: drop-shadow(0 0 6px color-mix(in oklab, var(--streak-core) 86%, transparent)) drop-shadow(0 0 13px color-mix(in oklab, var(--streak-glow) 68%, transparent)); } }
+@keyframes streak-halo { 0%, 100% { opacity: .52; transform: scale(.94); } 50% { opacity: .92; transform: scale(1.06); } }
+.mission-card { border-color: color-mix(in oklab, var(--primary) 42%, var(--border)); background: linear-gradient(135deg, color-mix(in oklab, var(--primary) 8%, var(--card)), var(--card) 55%); box-shadow: 0 18px 46px color-mix(in oklab, var(--primary) 11%, transparent); transition: box-shadow .3s ease, border-color .3s ease, transform .3s ease; }
+.mission-card:hover { border-color: color-mix(in oklab, var(--primary) 58%, var(--border)); box-shadow: 0 24px 56px color-mix(in oklab, var(--primary) 16%, transparent); transform: translateY(-2px); }
+.mission-card-glow { position: absolute; top: -5rem; right: -2rem; width: 19rem; height: 19rem; border-radius: 9999px; background: radial-gradient(circle, color-mix(in oklab, var(--primary) 17%, transparent), transparent 70%); pointer-events: none; }
+.mission-pill { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid var(--border); border-radius: 9999px; background: color-mix(in oklab, var(--card) 88%, transparent); padding: .4rem .7rem; color: var(--muted-foreground); font-size: .68rem; font-weight: 600; }
+.mission-pill--signal { border-color: color-mix(in oklab, var(--primary) 38%, var(--border)); color: var(--primary-foreground); }
+.mission-steps { list-style: none; margin: 0; padding: 0; }
+.mission-step { display: flex; min-width: 0; align-items: flex-start; gap: .65rem; border: 1px solid var(--border); border-radius: 1rem; background: color-mix(in oklab, var(--card) 82%, var(--muted)); padding: .85rem; transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
+.mission-step:hover { transform: translateY(-2px); }
+.mission-step--done { border-color: color-mix(in oklab, var(--primary) 28%, var(--border)); background: color-mix(in oklab, var(--primary) 7%, var(--card)); }
+.mission-step--current { border-color: color-mix(in oklab, var(--primary) 58%, var(--border)); background: color-mix(in oklab, var(--primary) 15%, var(--card)); box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 10%, transparent); }
+.mission-step--next { opacity: .78; }
+.mission-step-icon { display: grid; width: 1.75rem; height: 1.75rem; flex: 0 0 auto; place-items: center; border-radius: .65rem; background: var(--muted); color: var(--muted-foreground); }
+.mission-step--done .mission-step-icon, .mission-step--current .mission-step-icon { background: var(--primary); color: var(--primary-foreground); }
+.mission-step--current .mission-step-icon { animation: mission-sparkle 2.4s ease-in-out infinite; }
+.mission-step-copy { display: flex; min-width: 0; flex-direction: column; gap: .22rem; }
+.mission-step-title { color: var(--foreground); font-size: .76rem; font-weight: 650; line-height: 1.3; }
+.mission-step-detail { color: var(--muted-foreground); font-size: .65rem; line-height: 1.45; }
+.mission-progress { display: flex; align-items: center; gap: .75rem; }
+.mission-progress-track { display: block; height: .4rem; flex: 1 1 auto; overflow: hidden; border-radius: 9999px; background: var(--muted); }
+.mission-progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.mission-progress-value { color: var(--muted-foreground); font-size: .68rem; font-weight: 600; white-space: nowrap; }
+.mission-action-panel { border-left: 1px solid color-mix(in oklab, var(--primary) 20%, var(--border)); background: color-mix(in oklab, var(--primary) 6%, var(--card)); }
+@keyframes mission-sparkle { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 0%, transparent); } 50% { transform: scale(1.08); box-shadow: 0 0 0 5px color-mix(in oklab, var(--primary) 12%, transparent); } }
 .topic-card { min-width: 0; }
+.topic-card-mark, .add-topic-mark { transition: transform .35s cubic-bezier(.2,.75,.25,1); }
+.topic-card:hover .topic-card-mark { transform: rotate(-8deg) scale(1.1); }
+.add-topic-card:hover .add-topic-mark { transform: rotate(90deg) scale(1.08); }
+.add-topic-card:hover { border-style: solid; }
+.continue-card-mark { animation: continue-mark-float 6s ease-in-out infinite; transform-origin: center; }
+@keyframes continue-mark-float { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-10px) rotate(-3deg); } }
 .review-good { background: color-mix(in oklab, var(--accent) 78%, var(--card)); color: var(--foreground); }
 .review-partial { background: color-mix(in oklab, var(--warning) 72%, var(--card)); color: var(--foreground); }
 .review-try { background: color-mix(in oklab, var(--muted) 88%, var(--card)); color: var(--foreground); }
@@ -106,13 +159,25 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--backgro
 .setup-aside { background-image: radial-gradient(circle at 95% 5%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 35%); }
 .context-card { align-self: start; }
 
+@media (max-width: 1023px) { .mission-action-panel { border-top: 1px solid color-mix(in oklab, var(--primary) 20%, var(--border)); border-left: 0; } }
+
 @media (max-width: 640px) {
   .panel { border-radius: 1.25rem; }
   .flow-shell { margin-inline: -0.25rem; }
   .hero-stat-card { min-width: 0; }
+  .hero-rhythm-card { border-radius: 1.15rem; }
+  .mission-card:hover { transform: none; }
+  .mission-step:hover { transform: none; }
+  .mission-progress-value { font-size: .62rem; }
+  .continue-card-mark { right: 2rem; top: -1rem; }
   .app-header nav { max-width: 44vw; }
   .app-header nav > * { padding-inline: .65rem; }
   .brand-name { font-size: .94rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb-one, .hero-orb-two, .hero-orb-three, .hero-orb-four, .continue-card-mark { animation: none; }
+  .topic-card-mark, .add-topic-mark { transition: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
