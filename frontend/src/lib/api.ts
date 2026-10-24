@@ -83,10 +83,10 @@ const demoApi: LearningApi = {
   async scopeTopic(topicId, message, history, signal) {
     await pause(signal, 950)
     const topic = await this.getTopic(topicId, signal)
-    const narrowed = /exam|week|test|important|focus/i.test(message)
+    const narrowed = /prüfung|woche|test|wichtig|fokus/i.test(message)
     const assistantMessage = narrowed
-      ? 'Got it. I’ll focus on the parts most useful for your goal and keep each practice step short. I’ve prepared a sample learning path for this demo; you can change these details any time.'
-      : 'Thanks, that helps me understand what matters to you. Which outcome would make these notes most useful: remembering key ideas, explaining them, or applying them to a task?'
+      ? 'Verstanden. Ich konzentriere mich auf die Teile, die für dein Ziel besonders nützlich sind, und halte die Übungsschritte kurz. Für diese Demo habe ich einen beispielhaften Lernpfad vorbereitet; du kannst die Angaben jederzeit anpassen.'
+      : 'Danke, das hilft mir zu verstehen, was dir wichtig ist. Welches Ergebnis wäre mit diesen Notizen am wertvollsten: zentrale Ideen erinnern, sie erklären oder sie in einer Aufgabe anwenden?'
     return { topic: { ...topic, description: message || topic.description }, assistantMessage }
   },
   async updateContext(_topicId, context, signal) {
@@ -96,38 +96,38 @@ const demoApi: LearningApi = {
   async submitAnswer(input, signal) {
     await pause(signal, 1150)
     const answer = input.answer.toLowerCase()
-    const mentionsOutcome = /reader|lead|audience|action|decision|next step|owner|include|criteria/i.test(answer)
+    const mentionsOutcome = /leser|leserin|projektleitung|zielgruppe|handlung|aktion|entscheidung|nächster schritt|verantwort|kriter|enthalt/i.test(answer)
     const detailed = answer.trim().split(/\s+/).length >= 12
     const correctness = mentionsOutcome && detailed ? 'strong' : mentionsOutcome || detailed ? 'partial' : 'incorrect'
     const hintPenalty = input.hintsUsed > 0 || input.tutorUsed
     if (correctness === 'strong') return {
       correctness,
-      headline: 'A clear start with a useful purpose',
-      feedback: 'You named a concrete audience or outcome and gave the AI enough direction to make the summary actionable. Next, check whether the requested details can be verified against the notes.',
-      evidenceLabel: hintPenalty ? 'Strong evidence · coached practice' : 'Strong independent evidence',
+      headline: 'Ein klarer Auftrag mit erkennbarem Ziel',
+      feedback: 'Du hast eine konkrete Zielgruppe oder ein Ergebnis benannt und der KI genug Orientierung für eine umsetzbare Zusammenfassung gegeben. Prüfe als Nächstes, ob sich die verlangten Details an den Notizen überprüfen lassen.',
+      evidenceLabel: hintPenalty ? 'Starke Evidenz · mit Coaching' : 'Starke selbstständige Evidenz',
       evidenceDelta: hintPenalty ? 8 : 14,
-      nextActivity: 'Make the success criteria checkable',
-      nextReason: 'Your prompt has a clear audience. The next step is to specify which evidence should appear so Lea can judge the summary reliably.',
+      nextActivity: 'Erfolgskriterien überprüfbar machen',
+      nextReason: 'Dein Prompt hat eine klare Zielgruppe. Im nächsten Schritt legst du fest, welche Belege erscheinen müssen, damit Lea die Zusammenfassung zuverlässig beurteilen kann.',
       nextQuestionId: input.questionId === 'q-criteria' ? 'q-revise' : 'q-criteria',
     }
     if (correctness === 'partial') return {
       correctness,
-      headline: 'You have part of the prompt in place',
-      feedback: 'There is a useful detail here. Add the missing audience, outcome, or checkable requirement, then compare the revised prompt with the source notes.',
-      evidenceLabel: hintPenalty ? 'Some evidence · with coaching' : 'Some independent evidence',
+      headline: 'Ein Teil deines Prompts ist schon klar',
+      feedback: 'Hier steckt bereits ein hilfreiches Detail. Ergänze die fehlende Zielgruppe, das Ergebnis oder ein überprüfbares Kriterium und vergleiche den überarbeiteten Prompt danach mit den Ausgangsnotizen.',
+      evidenceLabel: hintPenalty ? 'Teilweise Evidenz · mit Coaching' : 'Teilweise selbstständige Evidenz',
       evidenceDelta: hintPenalty ? 3 : 6,
-      nextActivity: 'Add one specific quality criterion',
-      nextReason: 'This attempt shows partial understanding. One more concrete requirement will make the next practice question a good fit.',
+      nextActivity: 'Ein konkretes Qualitätskriterium ergänzen',
+      nextReason: 'Dieser Versuch zeigt ein Teilverständnis. Eine weitere konkrete Anforderung macht die nächste Übung passend und greifbar.',
       nextQuestionId: 'q-criteria',
     }
     return {
       correctness,
-      headline: 'Let’s make the goal more concrete',
-      feedback: 'The answer does not yet name a reader, outcome, or requirement. Look back at who will use the summary and what they need to do with it; try again with a little more detail.',
-      evidenceLabel: 'Practice attempt saved · progress unchanged',
+      headline: 'Lass uns das Ziel greifbarer machen',
+      feedback: 'Deine Antwort nennt noch keine lesende Person, kein Ergebnis und keine Anforderung. Überlege, wer die Zusammenfassung nutzt und was diese Person damit tun soll; versuche es anschliessend mit etwas mehr Detail.',
+      evidenceLabel: 'Übungsversuch gespeichert · Fortschritt unverändert',
       evidenceDelta: 0,
-      nextActivity: 'Try a shorter question about the reader',
-      nextReason: 'This attempt suggests the audience is still unclear. A smaller step can help before returning to the full prompt.',
+      nextActivity: 'Eine kürzere Frage zur Zielgruppe beantworten',
+      nextReason: 'Dieser Versuch zeigt, dass die Zielgruppe noch nicht klar genug ist. Ein kleinerer Schritt hilft, bevor du zum vollständigen Prompt zurückkehrst.',
       nextQuestionId: 'q-goal',
     }
   },
@@ -136,11 +136,11 @@ const demoApi: LearningApi = {
     return {
       id: crypto.randomUUID(),
       role: 'assistant',
-      text: /audience|reader|lead/i.test(message)
-        ? 'Think about the person who receives the summary. What decision or action should they be able to take after reading it?'
-        : /include|criteria|check/i.test(message)
-          ? 'Try naming two details that would make the summary useful and easy to verify, such as decisions and owners.'
-          : 'What do you already know about the reader and the purpose of this summary? Start there, then add one detail the AI can check against the notes.',
+      text: /zielgruppe|leser|leserin|projektleitung/i.test(message)
+        ? 'Denk an die Person, die die Zusammenfassung erhält. Welche Entscheidung oder Handlung soll nach dem Lesen möglich sein?'
+        : /enthalt|kriter|prüf/i.test(message)
+          ? 'Nenne zwei Details, die die Zusammenfassung nützlich und leicht überprüfbar machen – zum Beispiel Entscheidungen und Zuständigkeiten.'
+          : 'Was weisst du schon über die lesende Person und den Zweck dieser Zusammenfassung? Beginne dort und ergänze dann ein Detail, das die KI an den Notizen prüfen kann.',
     }
   },
   async rateDifficulty(questionId, difficulty, signal) {

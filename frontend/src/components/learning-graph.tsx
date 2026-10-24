@@ -25,11 +25,11 @@ export default function LearningGraph({ topic, selectedNode, onSelect }: { topic
   const nodes: Node[] = topic.nodes.map((item) => {
     const position = positions.find((point) => point.id === item.id)?.position ?? { x: 80, y: 80 }
     const selected = selectedNode === item.id
-    const status = item.progress > 0 ? 'In progress' : item.eligible ? 'Ready' : 'Waiting'
+    const status = item.progress > 0 ? 'In Bearbeitung' : item.eligible ? 'Bereit' : 'Noch gesperrt'
     return {
       id: item.id,
       position,
-      data: { label: <div className="flow-node-content"><span className="flow-node-status">{item.eligible ? <CheckCircle2 className="size-3" /> : <LockKeyhole className="size-3" />} {status}</span><span className="flow-node-title">{item.label}</span><span className="flow-node-progress"><span className="flow-node-progress-label">Progress <span>{item.progress}%</span></span><span className="flow-node-progress-track" role="progressbar" aria-label={`${item.label} progress`} aria-valuenow={item.progress} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${item.progress}%` }} /></span></span></div> },
+      data: { label: <div className="flow-node-content"><span className="flow-node-status">{item.eligible ? <CheckCircle2 className="size-3" /> : <LockKeyhole className="size-3" />} {status}</span><span className="flow-node-title">{item.label}</span><span className="flow-node-progress"><span className="flow-node-progress-label">Fortschritt <span>{item.progress}%</span></span><span className="flow-node-progress-track" role="progressbar" aria-label={`${item.label} Fortschritt`} aria-valuenow={item.progress} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${item.progress}%` }} /></span></span></div> },
       style: {
         width: narrow ? 166 : 194,
         minHeight: 124,
@@ -46,7 +46,7 @@ export default function LearningGraph({ topic, selectedNode, onSelect }: { topic
     }
   })
   const edges: Edge[] = topic.nodes.flatMap((node) => node.prerequisites.map((prerequisite) => ({ id: `edge-${prerequisite}-${node.id}`, source: prerequisite, target: node.id, type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--primary)' }, style: { stroke: 'var(--primary)', strokeWidth: 2, opacity: .72 } })))
-  return <div className={`flow-shell ${narrow ? 'h-[580px]' : 'h-[320px] sm:h-[350px]'} overflow-hidden rounded-2xl border border-border bg-background`} aria-label="Interactive learning plan graph">
+  return <div className={`flow-shell ${narrow ? 'h-[580px]' : 'h-[320px] sm:h-[350px]'} overflow-hidden rounded-2xl border border-border bg-background`} aria-label="Interaktiver Lernpfad">
     <ReactFlow key={narrow ? 'compact' : 'wide'} nodes={nodes} edges={edges} fitView fitViewOptions={{ padding: .12 }} minZoom={.4} nodesConnectable={false} nodesDraggable={false} onNodeClick={(_, node) => onSelect(selectedNode === node.id ? null : node.id)} proOptions={{ hideAttribution: true }}><Background color="var(--border)" gap={20} size={1} /><Controls showInteractive={false} position="bottom-right" /></ReactFlow>
   </div>
 }

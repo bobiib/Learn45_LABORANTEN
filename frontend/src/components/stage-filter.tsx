@@ -3,9 +3,9 @@ import { bloomStages } from '@/lib/fixtures'
 
 export default function StageFilter({ value, onChange }: { value: string; onChange: (stage: string) => void }) {
   return <Select value={value} onValueChange={(stage) => { if (stage) onChange(stage) }}>
-    <SelectTrigger id="bloom-stage" aria-label="Filter by Bloom stage"><SelectValue /></SelectTrigger>
+    <SelectTrigger id="bloom-stage" aria-label="Nach Bloom-Stufe filtern"><SelectValue /></SelectTrigger>
     <SelectContent>
-      <SelectItem value="All stages">All stages</SelectItem>
+      <SelectItem value="All stages">Alle Stufen</SelectItem>
       {bloomStages.map((stage) => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}
     </SelectContent>
   </Select>

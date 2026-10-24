@@ -74,7 +74,7 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
       const messages = body.messages ?? []
       const lastUser = [...messages].reverse().find((message) => message.role === 'user')
       const text = lastUser?.parts.flatMap((part) => part.type === 'text' ? [part.text] : []).join('').trim() ?? ''
-      if (!text) return streamResponse('Tell me a little more so I can help.', init?.signal ?? undefined)
+      if (!text) return streamResponse('Erzähl mir etwas mehr, damit ich dich sinnvoll unterstützen kann.', init?.signal ?? undefined)
       try {
         if (kind === 'scope' && topicId) {
           const history = messages.flatMap((message) => {
@@ -89,9 +89,9 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
           const response = await learningApi.sendTutorMessage(questionId, text)
           return streamResponse(response.text, init?.signal ?? undefined)
         }
-        return streamResponse('The tutor is not connected to a question yet.', init?.signal ?? undefined)
+        return streamResponse('Der KI-Coach ist noch nicht mit einer Aufgabe verbunden.', init?.signal ?? undefined)
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'The learning assistant is unavailable.'
+        const message = error instanceof Error ? error.message : 'Der Lernassistent ist im Moment nicht verfügbar.'
         return new Response(message, { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
       }
     },
@@ -128,7 +128,7 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
           {message.parts.map((part, index) => part.type === 'text' ? <span key={`${message.id}-${index}`}>{part.text}</span> : null)}
         </div>
       </div>)}
-      {busy && <LoadingInline label={kind === 'scope' ? 'Updating your learning plan…' : 'Thinking through a hint…'} />}
+      {busy && <LoadingInline label={kind === 'scope' ? 'Lernpfad wird angepasst …' : 'Hinweis wird vorbereitet …'} />}
     </div>
     {(localError || error) && <p className="mt-3 text-xs text-destructive" role="alert">{localError || error?.message}</p>}
     <form onSubmit={(event) => {
@@ -140,11 +140,11 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
       void sendMessage({ text })
     }} className="mt-4 flex items-end gap-2">
       {kind === 'scope'
-        ? <Textarea value={input} onChange={(event) => setInput(event.target.value)} rows={2} required disabled={busy} className="min-h-12 resize-none rounded-xl" aria-label="Tell the learning partner what to adjust" placeholder="Ask to focus on a topic, adjust the pace, or correct a learning fact…" />
-        : <Input value={input} onChange={(event) => setInput(event.target.value)} required disabled={busy} className="h-11 rounded-xl" aria-label="Ask the AI tutor" placeholder="What feels tricky?" />}
-      <Button variant="primary" type="submit" size="icon-lg" aria-label="Send message" disabled={busy || !input.trim()}><ArrowUp className="size-4" aria-hidden="true" /></Button>
+        ? <Textarea value={input} onChange={(event) => setInput(event.target.value)} rows={2} required disabled={busy} className="min-h-12 resize-none rounded-xl" aria-label="Lernfokus anpassen" placeholder="Bitte um einen anderen Fokus, ein anderes Tempo oder korrigiere eine Lernangabe …" />
+        : <Input value={input} onChange={(event) => setInput(event.target.value)} required disabled={busy} className="h-11 rounded-xl" aria-label="Den KI-Coach fragen" placeholder="Was ist noch unklar?" />}
+      <Button variant="primary" type="submit" size="icon-lg" aria-label="Nachricht senden" disabled={busy || !input.trim()}><ArrowUp className="size-4" aria-hidden="true" /></Button>
     </form>
-    {kind === 'tutor' && <p className="mt-2 text-[10px] leading-4 text-muted-foreground">You stay in control. Close the tutor any time and answer independently.</p>}
-    {kind === 'scope' && <p className="mt-2 text-[10px] leading-5 text-muted-foreground">You can also edit the learning facts below. Responses are scripted locally until the FastAPI stream is connected.</p>}
+    {kind === 'tutor' && <p className="mt-2 text-[10px] leading-4 text-muted-foreground">Du behältst die Kontrolle. Der Coach unterstützt dein Denken, die Antwort formulierst du selbst.</p>}
+    {kind === 'scope' && <p className="mt-2 text-[10px] leading-5 text-muted-foreground">Die Lernangaben kannst du auch weiter unten bearbeiten. Bis der FastAPI-Stream verbunden ist, nutzt die Demo vorbereitete Antworten.</p>}
   </Card>
 }

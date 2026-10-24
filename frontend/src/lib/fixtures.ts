@@ -10,39 +10,39 @@ const emptyEvidence = (): BloomEvidence => ({
 })
 
 const nodes: TopicNode[] = [
-  { id: 'prompt-goal', label: 'Name the goal', description: 'Identify who the prompt is for and what the reader needs to do next.', prerequisites: [], progress: 62, eligible: true, evidence: { ...emptyEvidence(), Remember: 12, Understand: 24, Apply: 26 } },
-  { id: 'prompt-context', label: 'Add useful context', description: 'Choose the background details that help the model answer without overwhelming it.', prerequisites: [], progress: 38, eligible: true, evidence: { ...emptyEvidence(), Remember: 10, Understand: 28 } },
-  { id: 'prompt-criteria', label: 'Set quality criteria', description: 'Describe what a useful, verifiable summary must include.', prerequisites: ['prompt-goal', 'prompt-context'], progress: 18, eligible: true, evidence: { ...emptyEvidence(), Remember: 8, Understand: 10 } },
-  { id: 'prompt-revise', label: 'Revise with evidence', description: 'Compare a generated summary with the source and improve the prompt.', prerequisites: ['prompt-criteria'], progress: 0, eligible: false, evidence: emptyEvidence() },
-  { id: 'prompt-transfer', label: 'Transfer the skill', description: 'Apply the same prompt strategy to a different project-note scenario.', prerequisites: ['prompt-revise'], progress: 0, eligible: false, evidence: emptyEvidence() },
+  { id: 'prompt-goal', label: 'Ziel benennen', description: 'Bestimme, für wen der Prompt gedacht ist und was die lesende Person als Nächstes tun soll.', prerequisites: [], progress: 62, eligible: true, evidence: { ...emptyEvidence(), Remember: 12, Understand: 24, Apply: 26 } },
+  { id: 'prompt-context', label: 'Nützlichen Kontext ergänzen', description: 'Wähle Hintergrundinformationen, die dem Modell helfen, ohne es zu überladen.', prerequisites: [], progress: 38, eligible: true, evidence: { ...emptyEvidence(), Remember: 10, Understand: 28 } },
+  { id: 'prompt-criteria', label: 'Qualitätskriterien festlegen', description: 'Beschreibe, was eine hilfreiche und überprüfbare Zusammenfassung enthalten muss.', prerequisites: ['prompt-goal', 'prompt-context'], progress: 18, eligible: true, evidence: { ...emptyEvidence(), Remember: 8, Understand: 10 } },
+  { id: 'prompt-revise', label: 'Mit Belegen überarbeiten', description: 'Vergleiche eine erzeugte Zusammenfassung mit der Quelle und verbessere den Prompt.', prerequisites: ['prompt-criteria'], progress: 0, eligible: false, evidence: emptyEvidence() },
+  { id: 'prompt-transfer', label: 'Kompetenz übertragen', description: 'Wende dieselbe Prompt-Strategie auf eine andere Projektnotiz an.', prerequisites: ['prompt-revise'], progress: 0, eligible: false, evidence: emptyEvidence() },
 ]
 
 export const initialTopic: Topic = {
   id: 'clear-ai-prompts',
-  title: 'Writing clear AI prompts',
-  subject: 'Project skills',
-  description: 'Turn Lea’s project notes into a useful, reliable summary for her project lead.',
-  updatedLabel: 'Continued yesterday',
+  title: 'Klare KI-Prompts schreiben',
+  subject: 'Projektkompetenz',
+  description: 'Verwandle Leas Projektnotizen in eine hilfreiche, verlässliche Zusammenfassung für die Projektleitung.',
+  updatedLabel: 'Gestern fortgesetzt',
   progress: 42,
   sources: [
-    { id: 'source-1', name: 'Project notes & meeting transcript.pdf', kind: 'PDF', sizeLabel: '2.4 MB', addedLabel: 'Added Oct 20' },
-    { id: 'source-2', name: 'Prompting guidelines — lecture 04.pdf', kind: 'PDF', sizeLabel: '1.1 MB', addedLabel: 'Added Oct 20' },
+    { id: 'source-1', name: 'Projektnotizen & Sitzungsprotokoll.pdf', kind: 'PDF', sizeLabel: '2.4 MB', addedLabel: 'Hinzugefügt am 20. Okt.' },
+    { id: 'source-2', name: 'Prompting-Leitfaden – Lektion 04.pdf', kind: 'PDF', sizeLabel: '1.1 MB', addedLabel: 'Hinzugefügt am 20. Okt.' },
   ],
   nodes,
   questions: [
-    { id: 'q-goal', topicId: 'prompt-goal', title: 'Identify the reader and outcome', prompt: 'Lea needs a summary of project notes for her project lead. What should her prompt specify about the reader and the next action the summary should support?', stage: 'Understand', mode: 'Solo', duration: '4 min', status: 'recommended' },
-    { id: 'q-context', topicId: 'prompt-context', title: 'Choose the right context', prompt: 'Which two details from the notes would most help the AI produce a useful update without repeating every discussion point?', stage: 'Remember', mode: 'Solo', duration: '3 min', status: 'up-next' },
-    { id: 'q-criteria', topicId: 'prompt-criteria', title: 'Make success checkable', prompt: 'Write one instruction Lea could add so she can quickly check whether the summary includes the decisions, owners, and next steps.', stage: 'Apply', mode: 'Solo', duration: '5 min', status: 'up-next' },
-    { id: 'q-compare', topicId: 'prompt-criteria', title: 'Spot a missing criterion', prompt: 'A summary lists decisions but omits who owns each next step. How would you revise the prompt so that omission is easier to catch?', stage: 'Analyze', mode: 'Partner', duration: '6 min', status: 'up-next' },
-    { id: 'q-revise', topicId: 'prompt-revise', title: 'Revise using evidence', prompt: 'Compare the draft summary with the source notes. Which claim needs a citation or correction, and how would you change the instruction?', stage: 'Evaluate', mode: 'Solo', duration: '7 min', status: 'up-next' },
-    { id: 'q-transfer', topicId: 'prompt-transfer', title: 'Create a reusable prompt', prompt: 'Create a reusable prompt template Lea could adapt to summarize a different project meeting.', stage: 'Create', mode: 'Partner', duration: '8 min', status: 'up-next' },
+    { id: 'q-goal', topicId: 'prompt-goal', title: 'Lesende Person und Ergebnis bestimmen', prompt: 'Lea braucht für ihre Projektleitung eine Zusammenfassung der Projektnotizen. Was sollte ihr Prompt über die lesende Person und die nächste Handlung festlegen, die die Zusammenfassung unterstützen soll?', stage: 'Understand', mode: 'Solo', duration: '4 Min.', status: 'recommended' },
+    { id: 'q-context', topicId: 'prompt-context', title: 'Den passenden Kontext wählen', prompt: 'Welche zwei Angaben aus den Notizen helfen der KI am meisten, ein nützliches Update zu schreiben, ohne jeden Gesprächspunkt zu wiederholen?', stage: 'Remember', mode: 'Solo', duration: '3 Min.', status: 'up-next' },
+    { id: 'q-criteria', topicId: 'prompt-criteria', title: 'Erfolg überprüfbar machen', prompt: 'Formuliere eine Anweisung, mit der Lea schnell prüfen kann, ob die Zusammenfassung Entscheidungen, Zuständigkeiten und nächste Schritte enthält.', stage: 'Apply', mode: 'Solo', duration: '5 Min.', status: 'up-next' },
+    { id: 'q-compare', topicId: 'prompt-criteria', title: 'Ein fehlendes Kriterium erkennen', prompt: 'Eine Zusammenfassung nennt Entscheidungen, aber nicht die Verantwortlichen für die nächsten Schritte. Wie würdest du den Prompt überarbeiten, damit dieses Fehlen leichter auffällt?', stage: 'Analyze', mode: 'Partner', duration: '6 Min.', status: 'up-next' },
+    { id: 'q-revise', topicId: 'prompt-revise', title: 'Mit Belegen überarbeiten', prompt: 'Vergleiche den Entwurf mit den Ausgangsnotizen. Welche Aussage braucht einen Beleg oder eine Korrektur, und wie würdest du die Anweisung ändern?', stage: 'Evaluate', mode: 'Solo', duration: '7 Min.', status: 'up-next' },
+    { id: 'q-transfer', topicId: 'prompt-transfer', title: 'Einen wiederverwendbaren Prompt erstellen', prompt: 'Erstelle eine Prompt-Vorlage, mit der Lea die Zusammenfassung einer anderen Projektsitzung erstellen könnte.', stage: 'Create', mode: 'Partner', duration: '8 Min.', status: 'up-next' },
   ],
   context: {
     examDate: '2026-11-02',
-    timeAvailable: 'About 20 minutes a day',
+    timeAvailable: 'Etwa 20 Minuten pro Tag',
     preferredLength: 'Short',
     tutorEnabled: true,
-    focus: 'Prepare concise, actionable project updates',
+    focus: 'Prägnante, umsetzbare Projektupdates vorbereiten',
   },
 }
 
@@ -53,7 +53,7 @@ export const initialDashboard: DashboardData = {
   weeklyGoalMinutes: 120,
   completedSessions: 12,
   topics: [initialTopic],
-  lastSession: { topicId: initialTopic.id, title: 'Writing clear AI prompts', detail: 'Question 2 · Set quality criteria', progress: 42 },
+  lastSession: { topicId: initialTopic.id, title: 'Klare KI-Prompts schreiben', detail: 'Frage 2 · Qualitätskriterien festlegen', progress: 42 },
 }
 
 export const nodePositions = [
@@ -71,11 +71,11 @@ export function createTopicFromFile(fileName: string): Topic {
     ...initialTopic,
     id: `topic-${Date.now()}`,
     title: fileName.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' '),
-    subject: 'New learning topic',
-    description: 'A new learning plan shaped around Lea’s goals and uploaded notes.',
+    subject: 'Neues Lernthema',
+    description: 'Ein neuer Lernpfad, abgestimmt auf Leas Ziele und hochgeladene Notizen.',
     progress: 0,
-    updatedLabel: 'Just added',
-    sources: [{ id: `source-${Date.now()}`, name: fileName, kind: fileName.split('.').pop()?.toUpperCase() ?? 'FILE', sizeLabel: 'Ready to process', addedLabel: 'Just added' }],
+    updatedLabel: 'Gerade hinzugefügt',
+    sources: [{ id: `source-${Date.now()}`, name: fileName, kind: fileName.split('.').pop()?.toUpperCase() ?? 'DATEI', sizeLabel: 'Bereit zur Verarbeitung', addedLabel: 'Gerade hinzugefügt' }],
     nodes: initialTopic.nodes.map((node) => ({ ...node, progress: 0, eligible: node.prerequisites.length === 0, evidence: emptyEvidence() })),
     questions: initialTopic.questions.map((question) => ({ ...question, status: 'up-next' as const })),
     context: { ...initialTopic.context },
