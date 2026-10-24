@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { TextStreamChatTransport, type UIMessage } from 'ai'
 import { useChat } from '@ai-sdk/react'
-import { ArrowUp, Sparkles } from 'lucide-react'
+import { ArrowUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -69,7 +69,6 @@ export function AIChatPanel({
   topicId,
   questionId,
   initialMessages,
-  eyebrow,
   title,
   detail,
   compact = false,
@@ -135,17 +134,13 @@ export function AIChatPanel({
   }, [messages, onMessagesChange])
 
   return <Card className={`panel min-w-0 ${compact ? 'p-4' : ''}`}>
-    <div className="flex items-start gap-3">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-primary"><Sparkles className="size-5" aria-hidden="true" /></span>
-      <div className="min-w-0">
-        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h2 className="mt-0.5 text-base font-semibold">{title}</h2>
-        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{detail}</p>
-      </div>
+    <div className="min-w-0">
+      <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+      <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{detail}</p>
     </div>
-    <div className={`chat-transcript mt-4 space-y-3 overflow-y-auto ${compact ? 'max-h-64' : 'max-h-72'}`} aria-live="polite">
+    <div className={`chat-transcript mt-3.5 space-y-2.5 overflow-y-auto ${compact ? 'max-h-64' : 'max-h-72'}`} aria-live="polite">
       {messages.map((message) => <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-        <div className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
+        <div className={`max-w-[88%] whitespace-pre-wrap rounded-xl px-3.5 py-2 text-sm leading-6 ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
           {message.parts.map((part, index) => part.type === 'text' ? <span key={`${message.id}-${index}`}>{part.text}</span> : null)}
         </div>
       </div>)}
@@ -159,13 +154,12 @@ export function AIChatPanel({
       setLocalError('')
       setInput('')
       void sendMessage({ text })
-    }} className="mt-4 flex items-end gap-2">
+    }} className="mt-3.5 flex items-end gap-2">
       {kind === 'scope'
-        ? <Textarea id={inputId} value={input} onChange={(event) => setInput(event.target.value)} rows={2} required disabled={busy} className="min-h-12 resize-none rounded-xl" aria-label="Tell the learning partner what to adjust" placeholder={placeholder ?? 'Tell the AI which topics to learn, add or remove blocks, or adjust questions…'} />
-        : <Input id={inputId} value={input} onChange={(event) => setInput(event.target.value)} required disabled={busy} className="h-11 rounded-xl" aria-label="Ask the AI tutor" placeholder={placeholder ?? 'What feels tricky?'} />}
+        ? <Textarea id={inputId} value={input} onChange={(event) => setInput(event.target.value)} rows={2} required disabled={busy} className="min-h-11 resize-none rounded-lg" aria-label="Tell the learning partner what to adjust" placeholder={placeholder ?? 'Tell the AI which topics to learn, add or remove blocks, or adjust questions…'} />
+        : <Input id={inputId} value={input} onChange={(event) => setInput(event.target.value)} required disabled={busy} className="h-10 rounded-lg" aria-label="Ask the AI tutor" placeholder={placeholder ?? 'What feels tricky?'} />}
       <Button variant="primary" type="submit" size="icon-lg" aria-label="Send message" disabled={busy || !input.trim()}><ArrowUp className="size-4" aria-hidden="true" /></Button>
     </form>
-    {kind === 'tutor' && <p className="mt-2 text-[10px] leading-4 text-muted-foreground">You stay in control. Close the tutor any time and answer independently.</p>}
-    {kind === 'scope' && <p className="mt-2 text-[10px] leading-5 text-muted-foreground">Tell the agent which parts of your uploaded material you want to learn, or ask it to add/remove blocks and questions.</p>}
+    {kind === 'tutor' && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">You stay in control. Close the tutor any time and answer independently.</p>}
   </Card>
 }

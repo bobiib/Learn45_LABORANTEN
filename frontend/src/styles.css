@@ -5,33 +5,33 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --background: #F6FAFE;
-  --foreground: #0F2336;
+  --background: #F9FAFB;
+  --foreground: #111827;
   --card: #FFFFFF;
   --card-foreground: var(--foreground);
   --popover: var(--card);
   --popover-foreground: var(--foreground);
-  --muted: #EBF3FA;
-  --muted-foreground: #4B647B;
+  --muted: #F3F4F6;
+  --muted-foreground: #6B7280;
   --primary: #A2CFFE;
-  --primary-foreground: #0D233A;
-  --secondary: #DDEEFF;
-  --secondary-foreground: #122C46;
-  --accent: #E6F2FF;
-  --accent-foreground: #122C46;
+  --primary-foreground: #0F172A;
+  --secondary: #F3F4F6;
+  --secondary-foreground: #111827;
+  --accent: #EDF6FF;
+  --accent-foreground: #0F172A;
   --warning: oklch(0.965 0.045 88);
   --warning-foreground: oklch(0.34 0.067 70);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: #D7E5F3;
-  --input: #CDDFEE;
-  --ring: #7AB9FC;
-  --radius: 1rem;
-  --radius-xs: calc(var(--radius) - 0.75rem);
-  --radius-sm: calc(var(--radius) - 0.5rem);
-  --radius-md: calc(var(--radius) - 0.25rem);
+  --border: #E5E7EB;
+  --input: #D1D5DB;
+  --ring: #A2CFFE;
+  --radius: 0.75rem;
+  --radius-xs: calc(var(--radius) - 0.5rem);
+  --radius-sm: calc(var(--radius) - 0.25rem);
+  --radius-md: calc(var(--radius) - 0.125rem);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 0.25rem);
+  --radius-xl: calc(var(--radius) + 0.125rem);
 }
 
 @theme inline {
@@ -66,10 +66,10 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--backgro
 
 .panel {
   border: 1px solid var(--border);
-  border-radius: 1.5rem;
+  border-radius: 0.875rem;
   background: var(--card);
-  padding: clamp(1rem, 2vw, 1.5rem);
-  box-shadow: 0 12px 34px color-mix(in oklab, var(--foreground) 4%, transparent);
+  padding: clamp(1rem, 2vw, 1.35rem);
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
 }
 .progress-bar { display: block; gap: 0; }
 .progress-bar [data-slot="progress-track"] { height: .5rem; }

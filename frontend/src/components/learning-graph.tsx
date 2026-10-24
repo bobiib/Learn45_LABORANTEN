@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Background, Controls, MarkerType, Position, ReactFlow, type Edge, type Node } from '@xyflow/react'
-import { ArrowDown, CheckCircle2, LockKeyhole, MousePointerClick, Sparkles } from 'lucide-react'
+import { ArrowDown, CheckCircle2, LockKeyhole, MousePointerClick } from 'lucide-react'
 import '@xyflow/react/dist/style.css'
 import type { Topic, TopicNode } from '@/lib/types'
 
@@ -105,12 +105,12 @@ export default function LearningGraph({
           <div className={`flow-node-content ${item.eligible ? 'is-eligible' : 'is-locked'}`}>
             <div className="flex items-center justify-between gap-2">
               <span className="flow-node-status">
-                {item.eligible ? <CheckCircle2 className="size-3.5 text-primary" /> : <LockKeyhole className="size-3.5" />}
+                {item.eligible ? <CheckCircle2 className="size-3.5 text-foreground" /> : <LockKeyhole className="size-3.5" />}
                 {status}
               </span>
               {isRecommended && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/45 px-2.5 py-0.5 text-[11px] font-semibold text-primary-foreground">
-                  <Sparkles className="size-3" aria-hidden="true" /> Start here
+                <span className="inline-flex items-center rounded-md bg-primary/55 px-2 py-0.5 text-[10.5px] font-semibold text-primary-foreground">
+                  Start here
                 </span>
               )}
             </div>
@@ -147,13 +147,13 @@ export default function LearningGraph({
       style: {
         width: narrow ? 196 : 230,
         minHeight: 146,
-        borderRadius: 18,
-        borderColor: selected ? 'var(--primary)' : isRecommended ? 'color-mix(in oklab, var(--primary) 55%, var(--border))' : 'var(--border)',
+        borderRadius: 14,
+        borderColor: selected ? 'var(--primary)' : 'var(--border)',
         background: selected ? 'var(--accent)' : 'var(--card)',
         color: 'var(--foreground)',
         boxShadow: selected
-          ? '0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent)'
-          : '0 5px 20px color-mix(in oklab, var(--foreground) 6%, transparent)',
+          ? '0 0 0 2px var(--primary), 0 4px 12px rgba(15, 23, 42, 0.05)'
+          : '0 1px 3px rgba(15, 23, 42, 0.04)',
         opacity: item.eligible ? 1 : 0.78,
         padding: 15,
       },
@@ -168,8 +168,8 @@ export default function LearningGraph({
       source: prerequisite,
       target: node.id,
       type: 'smoothstep',
-      markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--primary)' },
-      style: { stroke: 'var(--primary)', strokeWidth: 2, opacity: 0.72 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#94A3B8' },
+      style: { stroke: '#94A3B8', strokeWidth: 1.75, opacity: 0.85 },
     })),
   )
 
@@ -177,12 +177,12 @@ export default function LearningGraph({
 
   return (
     <div
-      className={`flow-shell relative ${narrow ? 'h-[610px]' : 'h-[385px] sm:h-[415px]'} overflow-hidden rounded-2xl border border-border bg-background`}
+      className={`flow-shell relative ${narrow ? 'h-[610px]' : 'h-[385px] sm:h-[415px]'} overflow-hidden rounded-xl border border-border bg-background`}
       aria-label="Interactive learning plan graph"
     >
-      <div className="pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-card/90 px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-xs backdrop-blur-xs">
-        <MousePointerClick className="size-3.5 text-primary" aria-hidden="true" />
-        <span>Click any block to open its questions below</span>
+      <div className="pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card/95 px-2.5 py-1 text-[11px] font-medium text-muted-foreground shadow-2xs">
+        <MousePointerClick className="size-3.5 text-foreground" aria-hidden="true" />
+        <span>Click any block to view its questions</span>
       </div>
       <ReactFlow
         key={`${narrow ? 'compact' : 'wide'}-${signature}`}
