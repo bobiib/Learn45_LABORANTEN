@@ -1,4 +1,4 @@
-import { initialDashboard, initialTopic, createTopicFromFile, refreshEligibility } from './fixtures'
+import { initialDashboard, initialTopic, buildScopedPlanFromMessage, createTopicFromFile, refreshEligibility } from './fixtures'
 import type { AnswerSubmission, ChatMessage, DashboardData, ReviewResult, SetupResult, Topic } from './types'
 
 /**
@@ -80,14 +80,12 @@ const demoApi: LearningApi = {
     window.localStorage.setItem(`learn45.topic.${topicId}`, JSON.stringify(updated))
     return updated
   },
-  async scopeTopic(topicId, message, history, signal) {
-    await pause(signal, 950)
+  async scopeTopic(topicId, message, _history, signal) {
+    await pause(signal, 850)
     const topic = await this.getTopic(topicId, signal)
-    const narrowed = /exam|week|test|important|focus/i.test(message)
-    const assistantMessage = narrowed
-      ? 'Got it. I’ll focus on the parts most useful for your goal and keep each practice step short. I’ve prepared a sample learning path for this demo; you can change these details any time.'
-      : 'Thanks, that helps me understand what matters to you. Which outcome would make these notes most useful: remembering key ideas, explaining them, or applying them to a task?'
-    return { topic: { ...topic, description: message || topic.description }, assistantMessage }
+    const result = buildScopedPlanFromMessage(topic, message)
+    window.localStorage.setItem(`learn45.topic.${topicId}`, JSON.stringify(result.topic))
+    return result
   },
   async updateContext(_topicId, context, signal) {
     await pause(signal, 320)
@@ -96,7 +94,7 @@ const demoApi: LearningApi = {
   async submitAnswer(input, signal) {
     await pause(signal, 1150)
     const answer = input.answer.toLowerCase()
-    const mentionsOutcome = /reader|lead|audience|action|decision|next step|owner|include|criteria/i.test(answer)
+    const mentionsOutcome = /reader|lead|audience|action|decision|next step|owner|include|criteria|ziel|kriteri|antrag|prüf|regel|beispiel/i.test(answer)
     const detailed = answer.trim().split(/\s+/).length >= 12
     const correctness = mentionsOutcome && detailed ? 'strong' : mentionsOutcome || detailed ? 'partial' : 'incorrect'
     const hintPenalty = input.hintsUsed > 0 || input.tutorUsed

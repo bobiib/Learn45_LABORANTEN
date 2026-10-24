@@ -5,27 +5,27 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --background: oklch(0.975 0.009 101);
-  --foreground: oklch(0.22 0.022 151);
-  --card: oklch(0.998 0.003 100);
+  --background: #F6FAFE;
+  --foreground: #0F2336;
+  --card: #FFFFFF;
   --card-foreground: var(--foreground);
   --popover: var(--card);
   --popover-foreground: var(--foreground);
-  --muted: oklch(0.947 0.014 102);
-  --muted-foreground: oklch(0.5 0.022 151);
-  --primary: oklch(0.39 0.092 151);
-  --primary-foreground: oklch(0.99 0.005 145);
-  --secondary: oklch(0.9 0.033 147);
-  --secondary-foreground: oklch(0.25 0.06 151);
-  --accent: oklch(0.925 0.045 149);
-  --accent-foreground: oklch(0.27 0.07 151);
+  --muted: #EBF3FA;
+  --muted-foreground: #4B647B;
+  --primary: #A2CFFE;
+  --primary-foreground: #0D233A;
+  --secondary: #DDEEFF;
+  --secondary-foreground: #122C46;
+  --accent: #E6F2FF;
+  --accent-foreground: #122C46;
   --warning: oklch(0.965 0.045 88);
   --warning-foreground: oklch(0.34 0.067 70);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.88 0.018 112);
-  --input: oklch(0.85 0.021 112);
-  --ring: oklch(0.52 0.12 150);
+  --border: #D7E5F3;
+  --input: #CDDFEE;
+  --ring: #7AB9FC;
   --radius: 1rem;
   --radius-xs: calc(var(--radius) - 0.75rem);
   --radius-sm: calc(var(--radius) - 0.5rem);
@@ -87,16 +87,49 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--backgro
 .review-partial { background: color-mix(in oklab, var(--warning) 72%, var(--card)); color: var(--foreground); }
 .review-try { background: color-mix(in oklab, var(--muted) 88%, var(--card)); color: var(--foreground); }
 .flow-shell .react-flow { background: transparent; }
-.flow-shell .react-flow__node-default { border: 1px solid var(--border); transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease; cursor: pointer; }
+.flow-shell .react-flow__node-default {
+  border: 1px solid var(--border);
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease, transform .18s ease;
+  cursor: pointer;
+}
 .flow-shell .react-flow__handle { width: 1px; height: 1px; border: 0; background: transparent; opacity: 0; }
-.flow-shell .react-flow__node-default:hover { border-color: var(--ring); }
-.flow-node-content { display: flex; flex-direction: column; gap: 7px; white-space: normal; text-align: left; }
-.flow-node-status { display: inline-flex; align-items: center; gap: 5px; color: var(--muted-foreground); font-size: 10px; font-weight: 600; }
-.flow-node-title { color: var(--foreground); font-size: 13px; font-weight: 650; line-height: 1.25; }
-.flow-node-progress { display: flex; flex-direction: column; gap: 4px; color: var(--muted-foreground); font-size: 9px; }
-.flow-node-progress-label { display: flex; justify-content: space-between; gap: 6px; }
-.flow-node-progress-track { display: block; height: 5px; overflow: hidden; border-radius: 999px; background: var(--muted); }
+.flow-shell .react-flow__node-default:hover,
+.flow-shell .react-flow__node-default:focus-within {
+  border-color: var(--primary) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px color-mix(in oklab, var(--primary) 18%, transparent) !important;
+}
+.flow-node-content { position: relative; display: flex; flex-direction: column; min-height: 118px; gap: 7px; white-space: normal; text-align: left; }
+.flow-node-status { display: inline-flex; align-items: center; gap: 5px; color: var(--muted-foreground); font-size: 11.5px; font-weight: 600; }
+.flow-node-title { display: block; color: var(--foreground); font-size: 15.5px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; }
+.flow-node-progress { display: flex; flex-direction: column; margin-top: auto; padding-top: 6px; gap: 5px; color: var(--muted-foreground); font-size: 11.5px; font-weight: 500; }
+.flow-node-progress-label { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.flow-node-progress-track { display: block; height: 6.5px; overflow: hidden; border-radius: 999px; background: var(--muted); }
 .flow-node-progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); transition: width .3s ease; }
+.flow-node-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--border);
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 650;
+  transition: color .18s ease, border-color .18s ease;
+}
+.flow-node-cta.is-selected,
+.flow-shell .react-flow__node-default:hover .flow-node-cta {
+  color: var(--primary-foreground);
+  border-top-color: color-mix(in oklab, var(--primary) 65%, var(--border));
+}
+.flow-node-cta-icon {
+  transition: transform .18s ease;
+}
+.flow-shell .react-flow__node-default:hover .flow-node-cta-icon {
+  transform: translateY(2px);
+}
 .flow-shell .react-flow__controls { overflow: hidden; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 4px 14px color-mix(in oklab, var(--foreground) 8%, transparent); }
 .flow-shell .react-flow__controls-button { width: 30px; height: 30px; border-bottom: 1px solid var(--border); background: var(--card); fill: var(--foreground); }
 .flow-shell .react-flow__controls-button:hover { background: var(--accent); }
