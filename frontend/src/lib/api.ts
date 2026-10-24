@@ -12,6 +12,7 @@ export interface LearningApi {
   uploadSource(file: File, topicId?: string, signal?: AbortSignal): Promise<Topic>
   renameSource(topicId: string, sourceId: string, name: string, signal?: AbortSignal): Promise<Topic>
   deleteSource(topicId: string, sourceId: string, signal?: AbortSignal): Promise<Topic>
+  deleteTopic(topicId: string, signal?: AbortSignal): Promise<void>
   scopeTopic(topicId: string, message: string, history: ChatMessage[], signal?: AbortSignal): Promise<SetupResult>
   updateContext(topicId: string, context: Topic['context'], signal?: AbortSignal): Promise<Topic['context']>
   submitAnswer(input: AnswerSubmission, signal?: AbortSignal): Promise<ReviewResult>
@@ -33,6 +34,16 @@ const pause = (signal?: AbortSignal, ms = 550) => new Promise<void>((resolve, re
     reject(new DOMException('Request cancelled', 'AbortError'))
   }, { once: true })
 })
+
+const deletedTopicsStorageKey = 'learn45.deleted-topics.v1'
+export function getDeletedTopicIds(): string[] {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(deletedTopicsStorageKey) ?? '[]') as unknown
+    return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : []
+  } catch {
+    return []
+  }
+}
 
 const demoApi: LearningApi = {
   async getDashboard(signal) {
@@ -80,21 +91,28 @@ const demoApi: LearningApi = {
     window.localStorage.setItem(`learn45.topic.${topicId}`, JSON.stringify(updated))
     return updated
   },
+  async deleteTopic(topicId, signal) {
+    await pause(signal, 320)
+    const deleted = new Set(getDeletedTopicIds())
+    deleted.add(topicId)
+    window.localStorage.setItem(deletedTopicsStorageKey, JSON.stringify([...deleted]))
+    window.localStorage.removeItem(`learn45.topic.${topicId}`)
+    window.localStorage.removeItem(`learn45.topic.ready.${topicId}`)
+  },
   async scopeTopic(topicId, message, _history, signal) {
     await pause(signal, 850)
     const topic = await this.getTopic(topicId, signal)
     const result = buildScopedPlanFromMessage(topic, message)
     window.localStorage.setItem(`learn45.topic.${topicId}`, JSON.stringify(result.topic))
     return result
-  },
-  async updateContext(_topicId, context, signal) {
+  },  async updateContext(_topicId, context, signal) {
     await pause(signal, 320)
     return context
   },
   async submitAnswer(input, signal) {
     await pause(signal, 1150)
     const answer = input.answer.toLowerCase()
-    const mentionsOutcome = /reader|lead|audience|action|decision|next step|owner|include|criteria|ziel|kriteri|antrag|prüf|regel|beispiel/i.test(answer)
+    const mentionsOutcome = /reader|lead|audience|action|decision|next step|owner|include|criteria/i.test(answer)
     const detailed = answer.trim().split(/\s+/).length >= 12
     const correctness = mentionsOutcome && detailed ? 'strong' : mentionsOutcome || detailed ? 'partial' : 'incorrect'
     const hintPenalty = input.hintsUsed > 0 || input.tutorUsed
@@ -168,6 +186,7 @@ async function request<T>(path: string, init: RequestInit = {}, parent?: AbortSi
       const payload = await response.json().catch(() => ({})) as { detail?: string; message?: string }
       throw new ApiError(payload.detail ?? payload.message ?? `Request failed (${response.status})`, response.status)
     }
+    if (response.status === 204) return undefined as T
     return await response.json() as T
   } catch (error) {
     if (error instanceof ApiError) throw error
@@ -194,6 +213,7 @@ const backendApi: LearningApi = {
   },
   renameSource: (topicId, sourceId, name, signal) => request(`/topics/${encodeURIComponent(topicId)}/sources/${encodeURIComponent(sourceId)}`, { method: 'PATCH', body: JSON.stringify({ name }) }, signal),
   deleteSource: (topicId, sourceId, signal) => request(`/topics/${encodeURIComponent(topicId)}/sources/${encodeURIComponent(sourceId)}`, { method: 'DELETE' }, signal),
+  deleteTopic: (id, signal) => request(`/topics/${encodeURIComponent(id)}`, { method: 'DELETE' }, signal),
   scopeTopic: (id, message, history, signal) => request(`/topics/${encodeURIComponent(id)}/scope`, { method: 'POST', body: JSON.stringify({ message, history }) }, signal),
   updateContext: (id, context, signal) => request(`/topics/${encodeURIComponent(id)}/context`, { method: 'PATCH', body: JSON.stringify(context) }, signal),
   submitAnswer: (input, signal) => request('/questions/answer', { method: 'POST', body: JSON.stringify(input) }, signal),

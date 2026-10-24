@@ -90,7 +90,7 @@ export function AIChatPanel({
       const messages = body.messages ?? []
       const lastUser = [...messages].reverse().find((message) => message.role === 'user')
       const text = lastUser?.parts.flatMap((part) => part.type === 'text' ? [part.text] : []).join('').trim() ?? ''
-      if (!text) return streamResponse('Tell me a little more so I can help.', init?.signal ?? undefined)
+      if (!text) return streamResponse('Erzähl mir noch etwas mehr, damit ich dir helfen kann.', init?.signal ?? undefined)
       try {
         if (kind === 'scope' && topicId) {
           const history = messages.flatMap((message) => {
@@ -105,9 +105,9 @@ export function AIChatPanel({
           const response = await learningApi.sendTutorMessage(questionId, text)
           return streamResponse(response.text, init?.signal ?? undefined)
         }
-        return streamResponse('The tutor is not connected to a question yet.', init?.signal ?? undefined)
+        return streamResponse('Der KI-Coach ist noch keiner Frage zugeordnet.', init?.signal ?? undefined)
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'The learning assistant is unavailable.'
+        const message = error instanceof Error ? error.message : 'Der Lerncoach ist gerade nicht verfügbar.'
         return new Response(message, { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
       }
     },
@@ -122,7 +122,7 @@ export function AIChatPanel({
       setLocalError('')
       if (kind === 'scope' && !isDemoMode && topicId) {
         void learningApi.getTopic(topicId).then((topic) => onTopicUpdated?.(topic)).catch((cause: unknown) => {
-          setLocalError(cause instanceof Error ? cause.message : 'The updated learning plan could not be loaded.')
+          setLocalError(cause instanceof Error ? cause.message : 'Der aktualisierte Lernpfad konnte nicht geladen werden.')
         })
       }
     },
@@ -144,7 +144,7 @@ export function AIChatPanel({
           {message.parts.map((part, index) => part.type === 'text' ? <span key={`${message.id}-${index}`}>{part.text}</span> : null)}
         </div>
       </div>)}
-      {busy && <LoadingInline label={kind === 'scope' ? 'Updating your learning plan…' : 'Thinking through a hint…'} />}
+      {busy && <LoadingInline label={kind === 'scope' ? 'Lernpfad wird aktualisiert…' : 'Hinweis wird vorbereitet…'} />}
     </div>
     {(localError || error) && <p className="mt-3 text-xs text-destructive" role="alert">{localError || error?.message}</p>}
     <form onSubmit={(event) => {
@@ -156,10 +156,10 @@ export function AIChatPanel({
       void sendMessage({ text })
     }} className="mt-3.5 flex items-end gap-2">
       {kind === 'scope'
-        ? <Textarea id={inputId} value={input} onChange={(event) => setInput(event.target.value)} rows={2} required disabled={busy} className="min-h-11 resize-none rounded-lg" aria-label="Tell the learning partner what to adjust" placeholder={placeholder ?? 'Tell the AI which topics to learn, add or remove blocks, or adjust questions…'} />
-        : <Input id={inputId} value={input} onChange={(event) => setInput(event.target.value)} required disabled={busy} className="h-10 rounded-lg" aria-label="Ask the AI tutor" placeholder={placeholder ?? 'What feels tricky?'} />}
-      <Button variant="primary" type="submit" size="icon-lg" aria-label="Send message" disabled={busy || !input.trim()}><ArrowUp className="size-4" aria-hidden="true" /></Button>
+        ? <Textarea id={inputId} value={input} onChange={(event) => setInput(event.target.value)} rows={2} required disabled={busy} className="min-h-11 resize-none rounded-lg" aria-label="Sag dem Lerncoach, was du anpassen möchtest" placeholder={placeholder ?? 'Sag der KI, welche Themen du lernen, ergänzen oder entfernen möchtest…'} />
+        : <Input id={inputId} value={input} onChange={(event) => setInput(event.target.value)} required disabled={busy} className="h-10 rounded-lg" aria-label="Den KI-Coach fragen" placeholder={placeholder ?? 'Was ist gerade schwierig?'} />}
+      <Button variant="primary" type="submit" size="icon-lg" aria-label="Nachricht senden" disabled={busy || !input.trim()}><ArrowUp className="size-4" aria-hidden="true" /></Button>
     </form>
-    {kind === 'tutor' && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">You stay in control. Close the tutor any time and answer independently.</p>}
+    {kind === 'tutor' && <p className="mt-2 text-[11px] leading-4 text-muted-foreground">Du entscheidest: Schließe den KI-Coach jederzeit und übe selbstständig weiter.</p>}
   </Card>
 }

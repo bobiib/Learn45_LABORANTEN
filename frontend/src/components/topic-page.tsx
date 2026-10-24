@@ -15,14 +15,25 @@ import { ErrorNotice, LoadingCard, LoadingInline, SavedNotice } from '@/componen
 import { bloomStages } from '@/lib/fixtures'
 import type { BloomStage, ChatMessage, LearningQuestion, Topic } from '@/lib/types'
 
+const preferredLengthLabels: Record<Topic['context']['preferredLength'], string> = { Short: 'Kurz', Balanced: 'Ausgewogen', Detailed: 'Ausführlich' }
+
+const bloomStageLabels: Record<BloomStage, string> = {
+  Remember: 'Erinnern',
+  Understand: 'Verstehen',
+  Apply: 'Anwenden',
+  Analyze: 'Analysieren',
+  Evaluate: 'Bewerten',
+  Create: 'Entwickeln',
+}
+
 const LearningGraph = lazy(() => import('@/components/learning-graph'))
 const AIChatPanel = lazy(() => import('@/components/ai-chat').then((module) => ({ default: module.AIChatPanel })))
 
 function ProgressBar({ value, label, className = '' }: { value: number; label?: string; className?: string }) {
   return (
-    <Progress value={value} aria-label={label ?? 'Overall progress'} className={`progress-bar ${className}`}>
+    <Progress value={value} aria-label={label ?? 'Gesamtfortschritt'} className={`progress-bar ${className}`}>
       <div className="mb-2 flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">{label ?? 'Overall progress'}</span>
+        <span className="text-muted-foreground">{label ?? 'Gesamtfortschritt'}</span>
         <span className="font-semibold tabular-nums">{value}%</span>
       </div>
     </Progress>
@@ -30,11 +41,11 @@ function ProgressBar({ value, label, className = '' }: { value: number; label?: 
 }
 
 function formatExamCountdown(date: string) {
-  if (!date) return 'Exam date not set'
+  if (!date) return 'Prüfungstermin nicht festgelegt'
   const target = new Date(`${date}T00:00:00`).getTime()
-  if (!Number.isFinite(target)) return 'Exam date not set'
+  if (!Number.isFinite(target)) return 'Prüfungstermin nicht festgelegt'
   const remaining = Math.ceil((target - new Date().setHours(0, 0, 0, 0)) / 86_400_000)
-  return remaining > 0 ? `Exam in ${remaining} days` : remaining === 0 ? 'Exam today' : 'Exam date passed'
+  return remaining > 0 ? `Prüfung in ${remaining} Tagen` : remaining === 0 ? 'Prüfung heute' : 'Prüfungstermin vorbei'
 }
 
 export function TopicPage(props: {
@@ -104,7 +115,7 @@ export function TopicPage(props: {
         className="sr-only"
         type="file"
         accept=".pdf,.doc,.docx,.txt,.md,.ppt,.pptx"
-        aria-label="Upload another source"
+        aria-label="Weiteres Lernmaterial hochladen"
         onChange={(event) => {
           const file = event.target.files?.[0]
           if (file) props.onUpload(file)
@@ -114,7 +125,7 @@ export function TopicPage(props: {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" onClick={props.onBack}>
           <span className="inline-flex items-center gap-2">
-            <ArrowLeft className="size-4" aria-hidden="true" /> Back to my learning
+            <ArrowLeft className="size-4" aria-hidden="true" /> Zurück zur Übersicht
           </span>
         </Button>
         <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
@@ -140,7 +151,7 @@ export function TopicPage(props: {
               </div>
               <div className="flex flex-wrap items-center gap-4">
                 <div className="min-w-[180px] flex-1 sm:min-w-[190px] sm:flex-none">
-                  <ProgressBar value={props.topic.progress} label="Topic progress" />
+                  <ProgressBar value={props.topic.progress} label="Themenfortschritt" />
                 </div>
                 <Button
                   variant="primary"
@@ -148,7 +159,7 @@ export function TopicPage(props: {
                   onClick={() => recommendedQuestion && props.onStartQuestion(recommendedQuestion)}
                 >
                   <span className="inline-flex items-center gap-2">
-                    Start recommended <ArrowRight className="size-4" aria-hidden="true" />
+                    Empfohlene Aufgabe starten <ArrowRight className="size-4" aria-hidden="true" />
                   </span>
                 </Button>
               </div>
@@ -239,7 +250,7 @@ function TopicSources({
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <FileText className="size-3.5" aria-hidden="true" />
-          Sources ({topic.sources.length})
+          Lernmaterialien ({topic.sources.length})
         </span>
         {topic.sources.length ? (
           <ul className="flex flex-wrap items-center gap-1.5">
@@ -261,13 +272,13 @@ function TopicSources({
                       value={sourceName}
                       onChange={(event) => onSourceNameChange(event.target.value)}
                       className="h-7 min-w-0 w-40 rounded-md px-2 py-1 text-xs"
-                      aria-label="Source name"
+                      aria-label="Name des Materials"
                     />
                     <Button variant="primary" type="submit" size="xs" disabled={sourceBusyId === source.id}>
-                      {sourceBusyId === source.id ? <LoadingInline label="Saving" /> : 'Save'}
+                      {sourceBusyId === source.id ? <LoadingInline label="Wird gespeichert" /> : 'Speichern'}
                     </Button>
                     <Button variant="ghost" size="xs" onClick={onCancelRename}>
-                      Cancel
+                      Abbrechen
                     </Button>
                   </form>
                 ) : (
@@ -279,7 +290,7 @@ function TopicSources({
                     <Button
                       variant="ghost"
                       size="icon-xs"
-                      aria-label={`Rename ${source.name}`}
+                      aria-label={`„${source.name}“ umbenennen`}
                       onClick={() => onRenameStart(source.id, source.name)}
                     >
                       <Pencil className="size-3 text-muted-foreground" aria-hidden="true" />
@@ -287,11 +298,11 @@ function TopicSources({
                     <Button
                       variant="ghost"
                       size="icon-xs"
-                      aria-label={`Delete ${source.name}`}
+                      aria-label={`„${source.name}“ entfernen`}
                       disabled={sourceBusyId === source.id}
                       onClick={() => onDeleteSource(source.id)}
                     >
-                      {sourceBusyId === source.id ? <LoadingInline label="Removing" /> : <Trash2 className="size-3 text-muted-foreground" aria-hidden="true" />}
+                      {sourceBusyId === source.id ? <LoadingInline label="Wird entfernt" /> : <Trash2 className="size-3 text-muted-foreground" aria-hidden="true" />}
                     </Button>
                   </>
                 )}
@@ -299,16 +310,16 @@ function TopicSources({
             ))}
           </ul>
         ) : (
-          <span className="text-xs text-muted-foreground">No files uploaded yet.</span>
+          <span className="text-xs text-muted-foreground">Noch kein Lernmaterial hinzugefügt.</span>
         )}
       </div>
       <Button variant="outline" size="sm" disabled={uploading} onClick={onAdd}>
         <span className="inline-flex items-center gap-1.5">
           {uploading ? (
-            <LoadingInline label="Adding source" />
+            <LoadingInline label="Lernmaterial wird hinzugefügt" />
           ) : (
             <>
-              <Upload className="size-3.5" aria-hidden="true" /> Add source
+              <Upload className="size-3.5" aria-hidden="true" /> Lernmaterial hinzufügen
             </>
           )}
         </span>
@@ -433,8 +444,8 @@ function TopicPlanPanel({
     const newQuestion: LearningQuestion = {
       id: `q-${selectedTopicNode.id}-${Date.now()}`,
       topicId: selectedTopicNode.id,
-      title: `New question on ${selectedTopicNode.label}`,
-      prompt: `Explain or apply a key requirement for “${selectedTopicNode.label}” based on your material.`,
+      title: `Neue Frage zu ${selectedTopicNode.label}`,
+      prompt: `Erkläre oder wende ein zentrales Kriterium zu „${selectedTopicNode.label}“ anhand deines Lernmaterials an.`,
       stage: 'Apply',
       mode: 'Solo',
       duration: '4 min',
@@ -460,20 +471,20 @@ function TopicPlanPanel({
     <Card className="panel min-w-0 gap-0 p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">Learning plan</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Lernpfad</h2>
           <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-            Select a block in the map to open its questions below and start practicing with{' '}
-            <span className="font-medium text-foreground">Study now</span>.
+            Wähle einen Abschnitt im Lernpfad aus, um die Fragen zu öffnen. Dort kannst du direkt üben{' '}
+            <span className="font-medium text-foreground">Jetzt üben</span>.
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={onOpenPlanChat}>
-          Customize in chat
+          Lernpfad im Chat anpassen
         </Button>
       </div>
       <Suspense
         fallback={
           <div className="flow-shell flex h-[340px] items-center justify-center rounded-xl border border-border bg-background">
-            <LoadingInline label="Preparing the learning map…" />
+            <LoadingInline label="Lernpfad wird vorbereitet…" />
           </div>
         }
       >
@@ -506,22 +517,22 @@ function TopicPlanPanel({
                     value={nodeLabelDraft}
                     onChange={(e) => setNodeLabelDraft(e.target.value)}
                     className="h-8 rounded-lg bg-card px-2.5 text-xs font-semibold"
-                    aria-label="Block title"
-                    placeholder="Block title"
+                    aria-label="Titel des Abschnitts"
+                    placeholder="Titel des Abschnitts"
                   />
                   <Input
                     value={nodeDescDraft}
                     onChange={(e) => setNodeDescDraft(e.target.value)}
                     className="h-8 rounded-lg bg-card px-2.5 text-xs"
-                    aria-label="Block description"
-                    placeholder="Block description"
+                    aria-label="Beschreibung des Abschnitts"
+                    placeholder="Beschreibung des Abschnitts"
                   />
                   <div className="flex items-center gap-2">
                     <Button variant="primary" size="xs" type="submit">
-                      Save block
+                      Abschnitt speichern
                     </Button>
                     <Button variant="ghost" size="xs" onClick={() => setEditingNode(false)}>
-                      Cancel
+                      Abbrechen
                     </Button>
                   </div>
                 </form>
@@ -530,12 +541,12 @@ function TopicPlanPanel({
                   <div className="flex items-center gap-1.5">
                     <h3 className="text-base font-semibold tracking-tight">{selectedTopicNode.label}</h3>
                     <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                      {selectedTopicNode.eligible ? 'Ready' : 'Waiting'}
+                      {selectedTopicNode.eligible ? 'Bereit' : 'Noch nicht freigeschaltet'}
                     </span>
                     <Button
                       variant="ghost"
                       size="icon-xs"
-                      aria-label={`Edit block ${selectedTopicNode.label}`}
+                      aria-label={`Abschnitt „${selectedTopicNode.label}“ bearbeiten`}
                       onClick={() => {
                         setNodeLabelDraft(selectedTopicNode.label)
                         setNodeDescDraft(selectedTopicNode.description)
@@ -550,17 +561,17 @@ function TopicPlanPanel({
               )}
               {selectedTopicNode.prerequisites.length > 0 && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Prerequisite: {selectedTopicNode.prerequisites.map((id) => topic.nodes.find((node) => node.id === id)?.label ?? id).join(' · ')}
+                  Voraussetzung: {selectedTopicNode.prerequisites.map((id) => topic.nodes.find((node) => node.id === id)?.label ?? id).join(' · ')}
                 </p>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <div className="w-40">
-                <ProgressBar value={selectedTopicNode.progress} label="Block progress" />
+                <ProgressBar value={selectedTopicNode.progress} label="Fortschritt im Abschnitt" />
               </div>
               {selectedTopicNode.eligible && nodeQuestions.length > 0 && (
                 <Button variant="primary" size="sm" onClick={() => onStudyNode(selectedTopicNode.id)}>
-                  <span>Study now</span>
+                  <span>Jetzt üben</span>
                   <ArrowRight className="size-3.5" aria-hidden="true" />
                 </Button>
               )}
@@ -570,13 +581,13 @@ function TopicPlanPanel({
           <div className="mt-4 border-t border-border pt-3.5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <h4 className="text-xs font-semibold text-foreground">Questions</h4>
+                <h4 className="text-xs font-semibold text-foreground">Fragen</h4>
                 <span className="text-xs text-muted-foreground">
-                  {completedInNode}/{nodeQuestions.length} completed
+                  {completedInNode}/{nodeQuestions.length} abgeschlossen
                 </span>
               </div>
               <Button variant="outline" size="sm" onClick={handleAddQuestion}>
-                <Plus className="size-3.5" aria-hidden="true" /> Add question
+                <Plus className="size-3.5" aria-hidden="true" /> Frage hinzufügen
               </Button>
             </div>
             {nodeQuestions.length > 0 ? (
@@ -597,9 +608,9 @@ function TopicPlanPanel({
               </div>
             ) : (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-xs text-muted-foreground">
-                <span>No exercises in this block yet. Add a custom question or ask the assistant on the right.</span>
+                <span>In diesem Abschnitt gibt es noch keine Aufgaben. Füge eine eigene Frage hinzu oder bitte den Lerncoach rechts darum.</span>
                 <Button variant="outline" size="sm" onClick={handleAddQuestion}>
-                  <Plus className="size-3.5" aria-hidden="true" /> Add first question
+                  <Plus className="size-3.5" aria-hidden="true" /> Erste Frage hinzufügen
                 </Button>
               </div>
             )}
@@ -616,10 +627,10 @@ function TopicPlanPanel({
             </span>
             <div>
               <p className="text-xs font-semibold text-foreground">
-                Select any block above to view and customize its questions
+                Wähle oben einen Abschnitt aus, um die Fragen anzusehen und anzupassen
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Clicking a block scrolls down here so you can review its exercises and start with Study now.
+                Wenn du einen Abschnitt auswählst, erscheinen hier die passenden Aufgaben. Von dort kannst du direkt mit dem Üben starten.
               </p>
             </div>
           </div>
@@ -629,7 +640,7 @@ function TopicPlanPanel({
               size="sm"
               onClick={() => handleSelectGraphNode(recommendedNode.id)}
             >
-              <span>Open “{recommendedNode.label}”</span>
+              <span>„{recommendedNode.label}“ öffnen</span>
               <ArrowRight className="size-3.5" aria-hidden="true" />
             </Button>
           )}
@@ -657,15 +668,15 @@ function SetupPanel({
       <div className="setup-aside border-b border-border bg-muted/40 p-6 sm:p-8 lg:border-b-0 lg:border-r">
         <Button variant="ghost" onClick={onRetry}>
           <span className="inline-flex items-center gap-2">
-            <ArrowLeft className="size-4" aria-hidden="true" /> Back to topic
+            <ArrowLeft className="size-4" aria-hidden="true" /> Zurück zum Thema
           </span>
         </Button>
         <span className="mt-8 flex size-10 items-center justify-center rounded-lg border border-border bg-card text-foreground">
           <Upload className="size-4" aria-hidden="true" />
         </span>
-        <h1 className="mt-5 text-2xl font-semibold tracking-tight">Your material is in.</h1>
+        <h1 className="mt-5 text-2xl font-semibold tracking-tight">Dein Lernmaterial ist bereit.</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Now let’s focus on the parts that matter most to you. The plan and questions will adapt to your goal.
+          Jetzt legen wir den Schwerpunkt fest. Lernpfad und Fragen passen sich deinem Ziel an.
         </p>
         <div className="mt-6 rounded-xl border border-border bg-card p-3.5">
           <div className="flex items-center gap-3">
@@ -673,27 +684,27 @@ function SetupPanel({
               <FileText className="size-4" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{topic.sources[0]?.name ?? 'Learning notes'}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">Uploaded source</p>
+              <p className="truncate text-sm font-medium">{topic.sources[0]?.name ?? 'Lernnotizen'}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Hinzugefügtes Material</p>
             </div>
           </div>
         </div>
         <ol className="mt-6 space-y-2.5 text-sm">
           <li className="flex items-center gap-3 font-medium">
-            <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span> Add your focus
+            <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span> Schwerpunkt festlegen
           </li>
           <li className="flex items-center gap-3 text-muted-foreground">
-            <span className="flex size-6 items-center justify-center rounded-full border border-border bg-card text-xs">2</span> Review your plan
+            <span className="flex size-6 items-center justify-center rounded-full border border-border bg-card text-xs">2</span> Lernpfad ansehen
           </li>
           <li className="flex items-center gap-3 text-muted-foreground">
-            <span className="flex size-6 items-center justify-center rounded-full border border-border bg-card text-xs">3</span> Start practicing
+            <span className="flex size-6 items-center justify-center rounded-full border border-border bg-card text-xs">3</span> Mit dem Üben starten
           </li>
         </ol>
       </div>
       <div className="flex min-h-[540px] flex-col p-5 sm:p-8">
-        <h2 className="text-xl font-semibold tracking-tight">What are you working toward?</h2>
+        <h2 className="text-xl font-semibold tracking-tight">Was möchtest du erreichen?</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Tell the assistant which parts of the document you want to learn, and it will build your learning plan blocks and questions.
+          Sag dem Lerncoach, welche Inhalte du verstehen möchtest. Daraus erstellt er passende Lernschritte und Fragen.
         </p>
         {error && (
           <div className="mt-3">
@@ -701,20 +712,20 @@ function SetupPanel({
           </div>
         )}
         <div className="mt-5">
-          <Suspense fallback={<LoadingCard title="Opening the learning partner" detail="Preparing the streaming conversation…" />}>
+          <Suspense fallback={<LoadingCard title="Lerncoach wird geöffnet" detail="Chat wird vorbereitet…" />}>
             <AIChatPanel
               kind="scope"
               chatId={`scope-${topic.id}`}
               topicId={topic.id}
               initialMessages={messages}
-              title="Learning assistant"
-              detail="Tell your coach what to focus on"
+              title="Lerncoach"
+              detail="Sag dem Lerncoach, worauf du dich konzentrieren möchtest"
               onTopicUpdated={onTopicUpdated}
             />
           </Suspense>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Tip: List multiple topics separated by commas (e.g. “Förderkriterien, Antragsprüfung, Praxis-Check”) to create dedicated blocks.
+          Tipp: Trenne mehrere Themen mit Kommas (z. B. „Förderkriterien, Antragsprüfung, Praxis-Check“), damit eigene Abschnitte entstehen.
         </p>
       </div>
     </section>
@@ -734,7 +745,7 @@ function PlanConversation({
     <Suspense
       fallback={
         <Card className="panel p-4">
-          <LoadingInline label="Opening the learning partner…" />
+          <LoadingInline label="Lerncoach wird geöffnet…" />
         </Card>
       }
     >
@@ -744,10 +755,10 @@ function PlanConversation({
         chatId={`scope-${topicId}`}
         topicId={topicId}
         initialMessages={messages}
-        title="Plan assistant"
-        detail="Adjust blocks, focus on specific topics from your files, or edit questions."
+        title="Lerncoach für den Lernpfad"
+        detail="Passe Abschnitte an, setze Schwerpunkte aus deinen Materialien oder bearbeite Fragen."
         inputId="plan-chat-input"
-        placeholder="e.g. Only focus on Förderkriterien, or remove the last question…"
+        placeholder="z. B. „Nur Förderkriterien“ oder „Letzte Frage entfernen …“"
         onTopicUpdated={onTopicUpdated}
       />
     </Suspense>
@@ -772,13 +783,13 @@ function LearningContextCard({
     <Card className="panel context-card gap-0 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold tracking-tight">Learning context</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">Preferences guiding this plan.</p>
+          <h2 className="text-base font-semibold tracking-tight">Lernkontext</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">Einstellungen für deinen Lernpfad.</p>
         </div>
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label={editing ? 'Close context editing' : 'Edit learning context'}
+          aria-label={editing ? 'Lernkontext-Bearbeitung schließen' : 'Lernkontext bearbeiten'}
           onClick={() => setEditing((value) => !value)}
         >
           {editing ? <X className="size-4" aria-hidden="true" /> : <Pencil className="size-4" aria-hidden="true" />}
@@ -792,7 +803,7 @@ function LearningContextCard({
           }}
         >
           <label className="block text-[11px] font-medium">
-            Exam date
+            Prüfungstermin
             <Input
               type="date"
               value={context.examDate}
@@ -801,7 +812,7 @@ function LearningContextCard({
             />
           </label>
           <label className="block text-[11px] font-medium">
-            Time available
+            Verfügbare Lernzeit
             <Input
               value={context.timeAvailable}
               onChange={(event) => onChange({ ...context, timeAvailable: event.target.value })}
@@ -817,7 +828,7 @@ function LearningContextCard({
             />
           </label>
           <label className="block text-[11px] font-medium">
-            Preferred question length
+            Gewünschte Fragenlänge
             <UISelect
               value={context.preferredLength}
               onValueChange={(value) => {
@@ -828,42 +839,42 @@ function LearningContextCard({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Short">Short</SelectItem>
-                <SelectItem value="Balanced">Balanced</SelectItem>
-                <SelectItem value="Detailed">Detailed</SelectItem>
+                <SelectItem value="Short">Kurz</SelectItem>
+                <SelectItem value="Balanced">Ausgewogen</SelectItem>
+                <SelectItem value="Detailed">Ausführlich</SelectItem>
               </SelectContent>
             </UISelect>
           </label>
           <label className="flex items-center justify-between rounded-lg bg-muted/70 p-2.5 text-[11px]">
             <span>
-              <span className="block font-medium">AI tutor</span>
-              <span className="mt-0.5 block text-muted-foreground">Available in practice</span>
+              <span className="block font-medium">KI-Coach</span>
+              <span className="mt-0.5 block text-muted-foreground">Beim Üben verfügbar</span>
             </span>
             <Switch
               checked={context.tutorEnabled}
               onCheckedChange={(checked) => onChange({ ...context, tutorEnabled: checked })}
-              aria-label="Enable AI tutor"
+              aria-label="KI-Coach aktivieren"
             />
           </label>
           <div className="flex items-center gap-2 sm:col-span-2">
             <Button variant="primary" type="submit" size="sm" disabled={saving}>
-              {saving ? <LoadingInline label="Saving" /> : 'Save context'}
+              {saving ? <LoadingInline label="Wird gespeichert" /> : 'Lernkontext speichern'}
             </Button>
             <Button variant="ghost" size="sm" disabled={saving} onClick={() => setEditing(false)}>
-              Cancel
+              Abbrechen
             </Button>
-            {saved && <SavedNotice>Saved to this browser</SavedNotice>}
+            {saved && <SavedNotice>In diesem Browser gespeichert</SavedNotice>}
           </div>
         </form>
       ) : (
         <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
-          <FactRow icon={<CalendarDays className="size-3.5" />} label="Exam date" value={context.examDate || 'Not set'} />
-          <FactRow icon={<Clock3 className="size-3.5" />} label="Time available" value={context.timeAvailable} />
-          <FactRow icon={<Target className="size-3.5" />} label="Current focus" value={context.focus} />
+          <FactRow icon={<CalendarDays className="size-3.5" />} label="Prüfungstermin" value={context.examDate || 'Nicht festgelegt'} />
+          <FactRow icon={<Clock3 className="size-3.5" />} label="Verfügbare Lernzeit" value={context.timeAvailable} />
+          <FactRow icon={<Target className="size-3.5" />} label="Aktueller Schwerpunkt" value={context.focus} />
           <FactRow
             icon={<MessageCircle className="size-3.5" />}
-            label="Question style"
-            value={`${context.preferredLength} · Tutor ${context.tutorEnabled ? 'on' : 'off'}`}
+            label="Fragenformat"
+            value={`${preferredLengthLabels[context.preferredLength]} · KI-Coach ${context.tutorEnabled ? 'aktiv' : 'aus'}`}
           />
         </div>
       )}
@@ -938,7 +949,7 @@ function QuestionCard({
       >
         <div className="space-y-2">
           <label className="block text-[11px] font-medium">
-            Question title
+            Fragentitel
             <Input
               autoFocus
               value={titleDraft}
@@ -948,7 +959,7 @@ function QuestionCard({
             />
           </label>
           <label className="block text-[11px] font-medium">
-            Question prompt
+            Aufgabenstellung
             <Textarea
               value={promptDraft}
               onChange={(event) => setPromptDraft(event.target.value)}
@@ -959,7 +970,7 @@ function QuestionCard({
           </label>
           <div className="grid grid-cols-3 gap-2">
             <label className="block text-[10px] font-medium text-muted-foreground">
-              Bloom stage
+              Bloom-Stufe
               <UISelect
                 value={stageDraft}
                 onValueChange={(value) => {
@@ -972,14 +983,14 @@ function QuestionCard({
                 <SelectContent>
                   {bloomStages.map((stage) => (
                     <SelectItem key={stage} value={stage}>
-                      {stage}
+                      {bloomStageLabels[stage]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </UISelect>
             </label>
             <label className="block text-[10px] font-medium text-muted-foreground">
-              Mode
+              Lernmodus
               <UISelect
                 value={modeDraft}
                 onValueChange={(value) => {
@@ -990,36 +1001,36 @@ function QuestionCard({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Solo">Solo</SelectItem>
-                  <SelectItem value="Partner">Partner</SelectItem>
+                  <SelectItem value="Solo">Allein</SelectItem>
+                  <SelectItem value="Partner">Mit Partner</SelectItem>
                 </SelectContent>
               </UISelect>
             </label>
             <label className="block text-[10px] font-medium text-muted-foreground">
-              Duration
+              Dauer
               <Input
                 value={durationDraft}
                 onChange={(event) => setDurationDraft(event.target.value)}
                 className="mt-1 h-8 rounded-md px-2 text-xs"
-                placeholder="4 min"
+                placeholder="4 Min."
               />
             </label>
           </div>
         </div>
         <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
           {onDelete && (
-            <Button variant="ghost" size="sm" onClick={onDelete} aria-label={`Delete ${question.title}`}>
-              <Trash2 className="size-3.5 text-destructive" aria-hidden="true" /> Delete
+            <Button variant="ghost" size="sm" onClick={onDelete} aria-label={`„${question.title}“ löschen`}>
+              <Trash2 className="size-3.5 text-destructive" aria-hidden="true" /> Löschen
             </Button>
           )}
           <div className="ml-auto flex items-center gap-1.5">
             {onEditCancel && (
               <Button variant="ghost" size="sm" onClick={onEditCancel}>
-                Cancel
+                Abbrechen
               </Button>
             )}
             <Button variant="primary" size="sm" type="submit">
-              Save
+              Speichern
             </Button>
           </div>
         </div>
@@ -1048,23 +1059,23 @@ function QuestionCard({
             <p className="text-sm font-medium text-foreground">{question.title}</p>
             {isCompleted && (
               <span className="inline-flex items-center gap-1 rounded-md bg-primary/40 px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                Done
+                Erledigt
               </span>
             )}
             {isRecommended && !isCompleted && (
               <span className="inline-flex items-center rounded-md bg-primary/45 px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                Up next
+                Als Nächstes
               </span>
             )}
             {locked && (
               <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                <LockKeyhole className="size-2.5" aria-hidden="true" /> Locked
+                <LockKeyhole className="size-2.5" aria-hidden="true" /> Gesperrt
               </span>
             )}
           </div>
           <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{question.prompt}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">{question.stage}</span>
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">{bloomStageLabels[question.stage]}</span>
             <span>·</span>
             <span>{question.duration}</span>
             <span>·</span>
@@ -1073,7 +1084,7 @@ function QuestionCard({
                 <UsersRound className="size-3" aria-hidden="true" /> Partner
               </span>
             ) : (
-              <span>Solo</span>
+              <span>Allein üben</span>
             )}
           </div>
         </div>
@@ -1081,12 +1092,12 @@ function QuestionCard({
       {(onEditStart || onDelete) && (
         <div className="flex shrink-0 items-center gap-0.5">
           {onEditStart && (
-            <Button variant="ghost" size="icon-xs" aria-label={`Edit ${question.title}`} onClick={onEditStart}>
+            <Button variant="ghost" size="icon-xs" aria-label={`„${question.title}“ bearbeiten`} onClick={onEditStart}>
               <Pencil className="size-3.5 text-muted-foreground" aria-hidden="true" />
             </Button>
           )}
           {onDelete && (
-            <Button variant="ghost" size="icon-xs" aria-label={`Delete ${question.title}`} onClick={onDelete}>
+            <Button variant="ghost" size="icon-xs" aria-label={`„${question.title}“ löschen`} onClick={onDelete}>
               <Trash2 className="size-3.5 text-muted-foreground" aria-hidden="true" />
             </Button>
           )}

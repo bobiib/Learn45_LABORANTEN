@@ -94,7 +94,7 @@ export default function LearningGraph({
     const position = positionLookup[item.id] ?? { x: 80, y: 80 }
     const selected = selectedNode === item.id
     const isRecommended = recommendedNodeId === item.id && item.eligible
-    const status = item.progress > 0 ? 'In progress' : item.eligible ? 'Ready' : 'Waiting'
+    const status = item.progress > 0 ? 'In Arbeit' : item.eligible ? 'Bereit' : 'Gesperrt'
     const questionCount = topic.questions.filter((q) => q.topicId === item.id).length
 
     return {
@@ -110,20 +110,20 @@ export default function LearningGraph({
               </span>
               {isRecommended && (
                 <span className="inline-flex items-center rounded-md bg-primary/55 px-2 py-0.5 text-[10.5px] font-semibold text-primary-foreground">
-                  Start here
+                  Hier starten
                 </span>
               )}
             </div>
             <span className="flow-node-title">{item.label}</span>
             <span className="flow-node-progress">
               <span className="flow-node-progress-label">
-                <span>Progress</span>
+                <span>Fortschritt</span>
                 <span className="font-semibold text-foreground">{item.progress}%</span>
               </span>
               <span
                 className="flow-node-progress-track"
                 role="progressbar"
-                aria-label={`${item.label} progress`}
+                aria-label={`Fortschritt: ${item.label}`}
                 aria-valuenow={item.progress}
                 aria-valuemin={0}
                 aria-valuemax={100}
@@ -134,10 +134,10 @@ export default function LearningGraph({
             <span className={`flow-node-cta ${selected ? 'is-selected' : ''}`}>
               <span>
                 {selected
-                  ? 'Selected · Shown below'
+                  ? 'Ausgewählt · Fragen unten'
                   : questionCount > 0
-                    ? `Open ${questionCount} ${questionCount === 1 ? 'question' : 'questions'}`
-                    : 'Open block details'}
+                    ? `${questionCount} ${questionCount === 1 ? 'Frage' : 'Fragen'} öffnen`
+                    : 'Abschnitt ansehen'}
               </span>
               <ArrowDown className="flow-node-cta-icon size-3.5" aria-hidden="true" />
             </span>
@@ -178,14 +178,20 @@ export default function LearningGraph({
   return (
     <div
       className={`flow-shell relative ${narrow ? 'h-[610px]' : 'h-[385px] sm:h-[415px]'} overflow-hidden rounded-xl border border-border bg-background`}
-      aria-label="Interactive learning plan graph"
+      aria-label="Interaktiver Lernpfad"
     >
       <div className="pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card/95 px-2.5 py-1 text-[11px] font-medium text-muted-foreground shadow-2xs">
         <MousePointerClick className="size-3.5 text-foreground" aria-hidden="true" />
-        <span>Click any block to view its questions</span>
+        <span>Wähle einen Abschnitt, um die Fragen zu sehen</span>
       </div>
       <ReactFlow
         key={`${narrow ? 'compact' : 'wide'}-${signature}`}
+        ariaLabelConfig={{
+          'controls.ariaLabel': 'Lernpfad-Steuerung',
+          'controls.zoomIn.ariaLabel': 'Vergrößern',
+          'controls.zoomOut.ariaLabel': 'Verkleinern',
+          'controls.fitView.ariaLabel': 'Ansicht anpassen',
+        }}
         nodes={nodes}
         edges={edges}
         fitView
