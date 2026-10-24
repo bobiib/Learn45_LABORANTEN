@@ -19,8 +19,8 @@
   --secondary-foreground: #111827;
   --accent: #EDF6FF;
   --accent-foreground: #0F172A;
-  --warning: oklch(0.965 0.045 88);
-  --warning-foreground: oklch(0.34 0.067 70);
+  --warning: #EDF6FF;
+  --warning-foreground: #1E3A5F;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: #E5E7EB;
@@ -76,12 +76,12 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--backgro
 .progress-bar [data-slot="progress-indicator"] { border-radius: 9999px; transition: width .55s ease; }
 .eyebrow { font-size: .67rem; font-weight: 700; letter-spacing: .14em; color: var(--muted-foreground); }
 .app-header { position: sticky; top: 0; z-index: 20; }
-.brand-mark { box-shadow: 0 5px 14px color-mix(in oklab, var(--primary) 22%, transparent); }
+.brand-mark { box-shadow: none; }
 .brand-name span { color: var(--primary); }
-.dashboard-hero { isolation: isolate; box-shadow: 0 18px 55px color-mix(in oklab, var(--primary) 20%, transparent); }
+.dashboard-hero { isolation: isolate; }
 .hero-orb { position: absolute; z-index: -1; border: 1px solid color-mix(in oklab, var(--primary-foreground) 12%, transparent); border-radius: 9999px; pointer-events: none; }
-.hero-orb-one { width: 440px; height: 440px; right: 4%; top: -70%; background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 12%, transparent), transparent 67%); }
-.hero-orb-two { width: 330px; height: 330px; right: 27%; bottom: -70%; background: radial-gradient(circle at 45% 45%, color-mix(in oklab, var(--primary-foreground) 8%, transparent), transparent 68%); }
+.hero-orb-one { width: 440px; height: 440px; right: 4%; top: -70%; background: transparent; }
+.hero-orb-two { width: 330px; height: 330px; right: 27%; bottom: -70%; background: transparent; }
 .topic-card { min-width: 0; }
 .review-good { background: color-mix(in oklab, var(--accent) 78%, var(--card)); color: var(--foreground); }
 .review-partial { background: color-mix(in oklab, var(--warning) 72%, var(--card)); color: var(--foreground); }
@@ -97,7 +97,7 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--backgro
 .flow-shell .react-flow__node-default:focus-within {
   border-color: var(--primary) !important;
   transform: translateY(-3px);
-  box-shadow: 0 12px 28px color-mix(in oklab, var(--primary) 18%, transparent) !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
 }
 .flow-node-content { position: relative; display: flex; flex-direction: column; min-height: 118px; gap: 7px; white-space: normal; text-align: left; }
 .flow-node-status { display: inline-flex; align-items: center; gap: 5px; color: var(--muted-foreground); font-size: 11.5px; font-weight: 600; }
@@ -136,7 +136,7 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--backgro
 .flow-shell .react-flow__edge-path { stroke: var(--border); }
 .flow-shell .react-flow__attribution { display: none; }
 .chat-transcript, .tutor-messages { scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
-.setup-aside { background-image: radial-gradient(circle at 95% 5%, color-mix(in oklab, var(--primary) 7%, transparent), transparent 35%); }
+.setup-aside { background-image: none; }
 .context-card { align-self: start; }
 
 @media (max-width: 640px) {
