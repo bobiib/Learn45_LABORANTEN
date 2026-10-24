@@ -2,6 +2,8 @@
 
 Hackathon prototype for an adaptive learning journey: solo practice, AI coaching, and learning with peers. The briefs prioritize a visible learning loop, a reasoned next-step recommendation, and evidence that the learner can apply feedback.
 
+**Quick start:** run `make dev`, then open <http://localhost:5173>. New to this? Follow the [step-by-step guide](#getting-started-step-by-step) below.
+
 ## Stack
 
 - React + Vite + TypeScript for the prototype UI
@@ -15,25 +17,84 @@ The AI SDK UI runs in React and FastAPI remains the backend. The tutor and first
 
 The shared shadcn/ui components live in `frontend/src/components/ui/` and are configured by `frontend/components.json`. The project uses the Base UI-backed shadcn style for Tailwind v4. Extend these shared components instead of adding screen-specific controls.
 
-## Start locally
+## Getting started (step by step)
 
-### Quick demo (no API key)
+You type a few commands into a **terminal**, the text window where you give your computer commands. Open it like this:
 
-The frontend runs against scripted fixtures by default. Start it without the backend:
+- **macOS:** press `Cmd + Space`, type "Terminal", and press Enter.
+- **Windows:** open *PowerShell* as administrator, run `wsl --install`, restart, then open the *Ubuntu* app from the Start menu. Run everything below in that window and follow the Linux steps.
+- **Linux:** open your *Terminal* app.
+
+### 1. Install the tools (one time only)
+
+- **macOS:** run `xcode-select --install`, then install [Node.js](https://nodejs.org) (LTS) and [Python](https://www.python.org/downloads/).
+- **Linux / Windows (WSL):** run `sudo apt update && sudo apt install -y git make python3 python3-venv python3-pip`, then install [Node.js](https://nodejs.org/en/download) (LTS).
+
+### 2. Download and start the app
 
 ```bash
-cd frontend
-npm install
-npm run dev
+git clone https://github.com/bobiib/Learn45_LABORANTEN.git
+cd Learn45_LABORANTEN
+make dev
 ```
 
-Open the local URL printed by Vite. This mode keeps demo data in this browser's `localStorage` and does not call Gemini.
+On the first start, the app installs what it needs (this takes a few minutes) and asks for a **Gemini API key**:
 
-### Full stack (AI features)
+1. Open [Google AI Studio](https://aistudio.google.com/app/apikey), sign in with a Google account, and click **Create API key**.
+2. Copy the key, paste it into the terminal, and press Enter. The key stays hidden while you paste it.
 
-For the backend-connected experience, add a Gemini key as described below and run `./start.sh` from the repository root. The script installs missing dependencies, starts FastAPI on `http://localhost:8000` and Vite on `http://localhost:5173`, and stops both services when you press Ctrl+C. It requires `backend/.env` to contain a non-empty `GEMINI_API_KEY`.
+The key is saved only on your computer, in `backend/.env`. It is never uploaded.
 
-To start either service manually, use the instructions below.
+### 3. Open the app
+
+When the terminal shows `➜ Open http://localhost:5173 in your browser`, open **<http://localhost:5173>**.
+
+To stop the app, press `Ctrl + C` in the terminal. To start it again later, open a terminal in the `Learn45_LABORANTEN` folder and run `make dev`.
+
+### What to try in the app
+
+1. **Create a topic:** on the dashboard, upload your learning notes (PDF, Word, PowerPoint, or text file).
+2. **Set your goal:** tell the AI coach what you want to focus on. Lea generates a learning plan and practice questions from your notes.
+3. **Explore the topic:** see the learning steps and how they build on each other, filter questions, and adjust your learning context.
+4. **Practice:** answer a question. If you are stuck, use the step-by-step hints or chat with the tutor.
+5. **Get feedback:** see what you got right, what to improve, and a recommended next step based on your progress.
+
+Before Lea sends anything to the AI, it shows a confirmation dialog that explains what will be sent.
+
+### Try it without an API key
+
+To look around without a Gemini key, run:
+
+```bash
+make demo
+```
+
+and open <http://localhost:5173>. This mode uses example data and scripted AI answers. Nothing is sent to an AI service.
+
+### All commands
+
+| Command | What it does |
+| --- | --- |
+| `make dev` | Starts the full app with AI features at <http://localhost:5173> (installs dependencies on first run) |
+| `make install` | Reinstalls all dependencies (`npm install` and Python packages), for example after pulling updates |
+| `make demo` | Starts the app with example data, without AI or an API key |
+| `make api-key` | Saves or changes your Gemini API key |
+| `make reset` | Deletes all local data (topics, uploads, progress) and starts fresh |
+| `make help` | Lists these commands |
+
+### Troubleshooting
+
+| Problem | Solution |
+| --- | --- |
+| A command prints a version error or `command not found` | Install the missing tool (step 1), open a new terminal, and try again. |
+| `Port 5173 (or 8000) is already in use` | The app is probably already running in another terminal window. Press `Ctrl + C` there, or close that window, then run `make dev` again. |
+| `Could not create a Python environment` | On Linux or WSL, run `sudo apt install python3-venv`, then run `make dev` again. |
+| AI features show an error | Check that your API key is correct: run `make api-key`, paste the key again, and restart with `make dev`. |
+| Scanned PDFs are not read | Install text recognition (OCR): on Linux/WSL run `sudo apt install tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu`; on macOS install [Homebrew](https://brew.sh) and run `brew install tesseract tesseract-lang`. |
+
+## Developer reference
+
+The sections below are for developers who want to run or change the services individually.
 
 ### Frontend
 
@@ -60,7 +121,7 @@ Before each backend AI action, Lea shows a confirmation dialog describing what w
 
 ### Gemini API key
 
-Create an API key in [Google AI Studio](https://aistudio.google.com/app/apikey). Copy `backend/.env.example` to `backend/.env`, then add the key there:
+Create an API key in [Google AI Studio](https://aistudio.google.com/app/apikey). Run `make api-key` to save it, or copy `backend/.env.example` to `backend/.env` and add the key there:
 
 ```dotenv
 GEMINI_API_KEY=your-secret-key
@@ -108,13 +169,9 @@ On Debian or Ubuntu, install OCR support with `sudo apt install tesseract-ocr te
 
 Then copy `frontend/.env.example` to `frontend/.env.local`, set `VITE_DEMO_MODE=false`, and run the frontend as above. Vite proxies `/api` requests to FastAPI on port 8000. The backend initializes its SQLite database and uploads directory on first start.
 
-To reset all backend development data, run this from the repository root:
+To reset all backend development data, run `make reset` (or `python3 reset_db.py`) from the repository root.
 
-```bash
-python3 reset_db.py
-```
-
-The command asks you to type `RESET`, then deletes and recreates the local SQLite database with the starter learner and clears uploaded source files. This removes topics, plans, questions, attempts, learner settings, extracted source text, and uploaded originals. Use `python3 reset_db.py --yes` to skip the prompt. The command automatically uses `backend/.venv` when present. If backend dependencies are not installed yet, create that environment and install them with `python3 -m venv backend/.venv` and `backend/.venv/bin/python -m pip install -r backend/requirements.txt`. It refuses non-SQLite databases and data paths outside `backend/data/`.
+It asks you to type `RESET`, then deletes and recreates the local SQLite database with the starter learner and clears uploaded source files. This removes topics, plans, questions, attempts, learner settings, extracted source text, and uploaded originals. Use `python3 reset_db.py --yes` to skip the prompt. The command automatically uses `backend/.venv` when present. If backend dependencies are not installed yet, create that environment and install them with `python3 -m venv backend/.venv` and `backend/.venv/bin/python -m pip install -r backend/requirements.txt`. It refuses non-SQLite databases and data paths outside `backend/data/`.
 
 ## Shared team skill
 
