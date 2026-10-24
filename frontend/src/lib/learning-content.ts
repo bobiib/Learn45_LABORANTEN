@@ -217,6 +217,12 @@ export function pairRoles(stage: BloomStage): PairRoles {
   return rolesByStage[stage]
 }
 
+/** Keep role order stable while alternating the people assigned to it each round. */
+export function pairLearners(partner: string, round: number): { first: string; second: string } {
+  const guest = partner.trim() || 'Lernpartner:in'
+  return round % 2 === 0 ? { first: 'Lea', second: guest } : { first: guest, second: 'Lea' }
+}
+
 export function projectFor(activity: LearningActivity): ProjectContent {
   const currentStep = activity.stage === 'Remember' || activity.stage === 'Understand'
     ? 0 : activity.stage === 'Apply' || activity.stage === 'Analyze' ? 1 : 2

@@ -12,6 +12,8 @@ The desktop learning workspace is implemented in `src/components/learning-sessio
 
 ## Task formats
 
+Within a saved learning session, each completed pair round advances the role rotation for the next task or new unit. The next pair round starts with the other person, so the two people exchange the stage-specific roles. Retrying, reloading, switching learning modes or leaving an unfinished round does not rotate roles. The assignment also determines handoff names, comparison labels, artifact ownership and coach turn context. The independent follow-up after joint success remains available before returning to pair work.
+
 `LearningActivity` in `src/lib/types.ts` contains the task snapshot, Bloom stage, source material, criteria, hints, estimated minutes and optional choices/file types. `src/lib/learning-engine.ts` provides a small explicit activity bank and a deterministic demo evaluator. Formats are writing, selection with justification, marking unsupported claims, and artifact submission. Tasks stay fixed while an answer is being written.
 
 `src/lib/learning-content.ts` supplies contextual theory, three-part mini-project outlines and roles for every Bloom stage. The structure accepts any subject; this prototype includes prepared prompting and Python content. Unknown subjects explicitly need verified material. Changing the learning mode refits a task only while its answer is empty.

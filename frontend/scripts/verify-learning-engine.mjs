@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { evaluatePractice, fitActivityToBudget, nextActivity, practiceActivities, coachReply } from '../src/lib/learning-engine.ts'
-import { activityTime, pairRoles, projectFor, theoryFor } from '../src/lib/learning-content.ts'
+import { activityTime, pairLearners, pairRoles, projectFor, theoryFor } from '../src/lib/learning-content.ts'
+
+assert.deepEqual(pairLearners('Noah', 0), { first: 'Lea', second: 'Noah' })
+assert.deepEqual(pairLearners('Noah', 1), { first: 'Noah', second: 'Lea' }, 'The next pair round exchanges the people assigned to development and checking.')
+assert.deepEqual(pairLearners('Noah', 2), { first: 'Lea', second: 'Noah' })
 
 const activity = practiceActivities.find((item) => item.id === 'q-criteria')
 const base = { questionId: activity.id, activity, hintsUsed: 0, tutorUsed: false, learningMode: 'solo', difficulty: null }

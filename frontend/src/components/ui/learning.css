@@ -134,6 +134,7 @@
 .learn-pair-label { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .learn-pair-label small { font-size: 10px; color: var(--muted-foreground); font-weight: 400; margin-left: auto; }
 .learn-pair-banner p { margin-top: 7px; font-size: 12px; line-height: 1.75; color: var(--muted-foreground); }
+.learn-pair-banner .learn-pair-next { font-size: 11px; margin-top: 10px; }
 .learn-pair-names { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
 .learn-pair-names label { font-size: 11px; color: var(--muted-foreground); flex-shrink: 0; }
 .learn-pair-names input { max-width: 230px; font-size: 12px; }
