@@ -859,7 +859,9 @@ async def recommend_next_question(topic_id: str, session: Session = Depends(get_
             if not attempts_by_question.get(question.id):
                 candidates.append((weakness(node), question))
     if candidates:
-        _, selected = max(candidates, key=lambda item: (item[0], -item[1].ordinal))
+        # Apply-stage questions are the "just right" default; recommend them
+        # ahead of easier Remember/Understand or harder Analyze/Evaluate/Create items.
+        _, selected = max(candidates, key=lambda item: (item[1].stage == "Apply", item[0], -item[1].ordinal))
         node = node_by_id[selected.node_id]
         latest = sorted(node_history.get(node.id, []), key=lambda item: item[1].created_at, reverse=True)
         if latest and (latest[0][1].review or {}).get("correctness") in {"incorrect", "partial"}:
@@ -891,7 +893,7 @@ async def recommend_next_question(topic_id: str, session: Session = Depends(get_
         topic=topic.title,
         node=node.label,
         description=node.description,
-        stage=focus_question.stage,
+        stage="Apply",
         source_text=_source_context(sources, f"{node.label} {node.description}", max_chars=12000),
         history=history_summary or "Keine Angaben zu bisherigen Versuchen.",
     )
@@ -1026,6 +1028,15 @@ async def submit_answer(request: Request, session: Session = Depends(get_session
         matched = len(correct_ids & selected_ids) + len((set(option_ids) - correct_ids) - selected_ids)
         score = round(100 * matched / len(options))
         correctness = "strong" if selected_ids == correct_ids else "partial" if matched > 0 else "incorrect"
+        option_criteria = [
+            {
+                "id": item["id"],
+                "label": item["text"],
+                "met": (item["id"] in selected_ids) == item["correct"],
+                "explanation": item.get("explanation", ""),
+            }
+            for item in options
+        ]
         details = [
             f"{'✓' if item['id'] in correct_ids else '✗'} {item['text']}: {item.get('explanation', '')}"
             for item in options
@@ -1034,7 +1045,10 @@ async def submit_answer(request: Request, session: Session = Depends(get_session
             correctness=correctness,
             estimatedPointsPercent=score,
             headline="Richtig ausgewählt." if correctness == "strong" else "Ein Teil stimmt." if correctness == "partial" else "Die Auswahl passt noch nicht.",
-            feedback="\n".join(details),
+            feedback=(
+                ("Alle richtigen Antworten ausgewählt." if correctness == "strong" else "Ein Teil der Auswahl stimmt." if correctness == "partial" else "Die Auswahl stimmt noch nicht vollständig.")
+                + "\n\n" + "\n".join(details)
+            ),
             nextActivity="Eine weitere Übung bearbeiten",
             nextReason="So kannst du dein Verständnis weiter festigen.",
             nextQuestionId=allowed_next[0] if allowed_next else question.id,
@@ -1083,6 +1097,8 @@ async def submit_answer(request: Request, session: Session = Depends(get_session
         "nextQuestionId": next_question_id,
         "sources": _verified_references(evaluation.sources, sources),
     }
+    if question.question_type in {"choose", "spot"}:
+        review["criteria"] = option_criteria
     stage_evidence = {stage: (node.evidence or {}).get(stage, 0) for stage in BLOOM_STAGES}
     stage_evidence[question.stage] = min(100, stage_evidence[question.stage] + evidence_delta)
     node.evidence = stage_evidence

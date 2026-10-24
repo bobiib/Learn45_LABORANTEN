@@ -35,6 +35,14 @@
 .learn-guided-task { margin: 18px 0; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--learn-quiet); }
 .learn-guided-task strong { display: block; color: var(--foreground); font-size: 12px; font-weight: 600; }
 .learn-guided-task p { margin-top: 6px; color: var(--muted-foreground); font-size: 12px; line-height: 1.7; }
+.learn-confidence { margin: 22px 0 8px; padding: 17px; border: 1px solid var(--border); border-radius: 15px; background: color-mix(in oklab, var(--accent) 45%, var(--card)); }
+.learn-confidence-heading { display: flex; align-items: flex-start; gap: 10px; }
+.learn-confidence-heading > svg { color: var(--primary); margin-top: 2px; flex: 0 0 auto; }
+.learn-confidence-heading h2 { font-size: 13px; font-weight: 650; }
+.learn-confidence-heading p, .learn-confidence-note { color: var(--muted-foreground); font-size: 11px; line-height: 1.6; margin-top: 4px; }
+.learn-confidence-options { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.learn-confidence-options [data-slot=button] { height: 35px; font-size: 11px; padding-inline: 12px; }
+.learn-confidence-note { margin-top: 10px; }
 .learn-mode-switch { display: inline-flex; gap: 3px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); }
 .learn-mode-switch [data-slot=button] { height: 32px; padding: 0 11px; border-radius: 8px; font-size: 11px; gap: 7px; }
 .learn-disclosure[data-slot=button] { padding-inline: 7px; font-size: 11px; gap: 5px; }
@@ -114,6 +122,16 @@
 .learn-result-icon { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 50%; background: var(--accent); }
 .learn-review-result .learn-title { margin-top: 10px; }
 .learn-review-copy { color: var(--muted-foreground); font-size: 13px; line-height: 1.85; }
+.learn-confidence-result { display: flex; align-items: flex-start; gap: 12px; margin-top: 20px; padding: 15px 16px; border: 1px solid var(--border); border-radius: 15px; background: var(--learn-quiet); color: var(--foreground); }
+.learn-confidence-result > svg { flex: 0 0 auto; margin-top: 2px; color: var(--primary); }
+.learn-confidence-result strong, .learn-confidence-result span { display: block; }
+.learn-confidence-result strong { font-size: 13px; font-weight: 650; }
+.learn-confidence-result span { margin-top: 4px; font-size: 11px; line-height: 1.65; color: var(--muted-foreground); }
+.learn-confidence-result.is-bonus { border-color: color-mix(in oklab, var(--primary) 45%, var(--border)); background: color-mix(in oklab, var(--accent) 75%, var(--card)); animation: learn-bonus-pop 520ms cubic-bezier(.2,.8,.2,1) both; }
+.learn-confidence-result.is-bonus > svg { animation: learn-bonus-sparkle 900ms ease-out both; }
+@keyframes learn-bonus-pop { 0% { transform: scale(.96); opacity: .65; } 65% { transform: scale(1.015); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes learn-bonus-sparkle { 0% { transform: rotate(-25deg) scale(.7); } 55% { transform: rotate(16deg) scale(1.2); } 100% { transform: rotate(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .learn-confidence-result.is-bonus, .learn-confidence-result.is-bonus > svg { animation: none; } }
 .learn-review-section { padding: 22px var(--learn-space); border-bottom: 1px solid var(--border); }
 .learn-section-heading { margin-bottom: 14px; }
 .learn-section-heading h2 { font-size: 13px; font-weight: 600; }

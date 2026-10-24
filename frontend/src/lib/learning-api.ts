@@ -31,6 +31,7 @@ export const practiceApi = {
       hintsUsed: input.hintsUsed,
       tutorUsed: input.tutorUsed || input.supportUsed || input.theoryUsed || input.learningMode === 'coach',
       difficulty: input.difficulty,
+      confidence: input.confidence ?? null,
     }
     const body = attachment ? new FormData() : JSON.stringify(payload)
     if (body instanceof FormData) {

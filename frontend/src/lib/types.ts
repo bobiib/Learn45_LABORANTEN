@@ -77,6 +77,7 @@ export type AnswerSubmission = {
   hintsUsed: number
   tutorUsed: boolean
   difficulty: 'too-easy' | 'about-right' | 'too-hard' | null
+  confidence?: 'low' | 'medium' | 'high' | null
 }
 
 export type ReviewResult = {
@@ -90,6 +91,7 @@ export type ReviewResult = {
   nextReason: string
   nextQuestionId: string
   sources?: SourceReference[]
+  confidenceBonus?: number
 }
 
 export type QuestionRecommendation = { question: LearningQuestion | null; reason: string; generated: boolean }

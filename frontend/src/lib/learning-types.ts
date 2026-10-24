@@ -9,6 +9,7 @@ export type AnswerSubmission = {
   theoryUsed?: boolean
   supportUsed?: boolean
   difficulty: 'too-easy' | 'about-right' | 'too-hard' | null
+  confidence?: 'low' | 'medium' | 'high' | null
   activity?: LearningActivity
   selectedOptions?: string[]
   learningMode?: LearningMode
@@ -27,6 +28,7 @@ export type ReviewResult = {
   nextQuestionId: string
   criteria?: CriterionResult[]
   assessmentPending?: boolean
+  confidenceBonus?: number
 }
 
 export type LearningMode = 'solo' | 'coach' | 'together'

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, ArrowUpRight, Clock3, FileText, LoaderCircle, UsersRound } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Clock3, FileText, LoaderCircle, Sparkles, UsersRound } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,6 +7,7 @@ import { BloomIndicator, LearningHelp, LearningModes, LearningPopover, LearningS
 import { LearningAnswer, canSubmitActivity, type AnswerDraft } from '@/components/learning-answer'
 import { MentalModel } from '@/components/mental-model'
 import { pairLearners, pairRoles, projectFor, theoryFor } from '@/lib/learning-content'
+import { questionDifficultyClass } from '@/lib/question-difficulty'
 import type { ChatMessage, LearningActivity, LearningMode } from '@/lib/learning-types'
 
 export type PairPhase = 'first' | 'handoff' | 'second' | 'compare'
@@ -20,6 +21,7 @@ type QuestionWorkspaceProps = {
   hintsUsed: number; restoredFileLost: boolean; onLeavePair: () => void
   messages: ChatMessage[]
   theoryViewed: boolean; onTheory: () => void
+  confidence: 'low' | 'medium' | 'high' | null; onConfidence: (value: 'low' | 'medium' | 'high') => void
 }
 
 export function QuestionWorkspace(props: QuestionWorkspaceProps) {
@@ -38,11 +40,12 @@ export function QuestionWorkspace(props: QuestionWorkspaceProps) {
   const ready = activity.format === 'tutor' ? coachCompletedTurn : testTurn ? !!draft.text.trim() : canSubmitActivity(activity, draft)
   const phaseLabel = paired ? pairPhase === 'first' ? `${possessive(learners.first)} Perspektive` : pairPhase === 'second' ? `${possessive(learners.second)} Perspektive` : 'Euer gemeinsames Ergebnis' : 'Dein Versuch'
   const submitLabel = activity.format === 'tutor' ? 'Gespräch auswerten' : paired && !comparing ? pairPhase === 'first' ? 'Antwort festhalten & weitergeben' : 'Perspektiven vergleichen' : 'Feedback erhalten'
+  const needsConfidence = !paired || comparing
 
   return <LearningSurface><div className="learn-paper">
     <div className="learn-workspace-topline"><LearningPopover label={`${project.title} · ${project.currentStep + 1}/3`} title="Dein Mini-Projekt" icon={false}><p>{project.goal}</p><ol className="learn-project-steps">{project.steps.map((step, index) => <li key={step} aria-current={index === project.currentStep ? 'step' : undefined}>{step}</li>)}</ol><p>Du bearbeitest passende Teilschritte innerhalb deines Zeitrahmens.</p></LearningPopover><LearningModes value={mode} onChange={props.onMode} disabled={busy || activity.format === 'tutor' || paired && pairPhase !== 'first'} /></div>
     <div className="learn-task-heading"><div className="learn-meta"><BloomIndicator stage={activity.stage} /><span><Clock3 className="size-3.5" />{activity.minutes} Min.</span>{activity.transfer && <span><ArrowUpRight className="size-3.5" />Transfer</span>}</div><LearningPopover label="Zur Aufgabe" title="Aufgabe und Kriterien"><h3>Warum diese Aufgabe?</h3><p>{activity.rationale}</p>{activity.criteria.length > 0 && <h3>Darauf kommt es an</h3>}{activity.criteria.map((criterion) => <p key={criterion.id}><strong>{criterion.label}:</strong> {criterion.explanation}</p>)}<p>Der Demo-Check betrachtet Auswahl und Textmerkmale. Hochgeladener Code wird nicht ausgeführt.</p></LearningPopover></div>
-    <div className="flex flex-wrap items-center gap-2"><h1 className="learn-title">{activity.title}</h1>{activity.difficultyLabel && <span className="inline-flex shrink-0 items-center rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{activity.difficultyLabel}</span>}</div>
+    <div className="flex flex-wrap items-center gap-2"><h1 className="learn-title">{activity.title}</h1>{activity.difficultyLabel && <span className={`inline-flex shrink-0 items-center rounded-md border px-2 py-1 text-xs font-medium ${questionDifficultyClass(activity.difficultyLabel)}`}>{activity.difficultyLabel}</span>}</div>
     {paired && pairPhase === 'handoff' ? <div className="learn-handoff"><span className="learn-handoff-mark"><UsersRound className="size-7" /></span><h2>Jetzt ist {learners.second} dran.</h2><p>Gebt den Bildschirm weiter. Die erste Antwort und das bisherige Coach-Gespräch bleiben für diesen Versuch ausgeblendet.</p><Button variant="primary" onClick={() => props.onPairPhase('second')}>Ich bin {learners.second} <ArrowRight className="size-4" /></Button></div> : <LearningTabs value={tab} onChange={setTab}>
       {tab === 'Material' ? <div className="learn-material"><div className="learn-context-heading"><FileText className="size-4" />{activity.scenario.title}</div><p>{activity.scenario.text}</p><small>{activity.scenario.source}</small><Button variant="outline" onClick={() => setTab('Aufgabe')}>Zurück zur Aufgabe <ArrowRight className="size-4" /></Button></div> : <>
         <p className="learn-prompt">{activity.prompt}</p><Button variant="ghost" size="sm" className="learn-material-link" onClick={() => setTab('Material')}><FileText className="size-3.5" />Material öffnen <ArrowUpRight className="size-3" /></Button>
@@ -53,8 +56,9 @@ export function QuestionWorkspace(props: QuestionWorkspaceProps) {
         <AnimatePresence mode="wait" initial={false}><motion.div key={paired ? pairPhase : 'answer'} initial={reduced ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : .18 }}>
           {comparing && <><div className="learn-comparison"><PairAnswer name={learners.first} activity={activity} draft={props.firstDraft} /><PairAnswer name={learners.second} activity={activity} draft={props.secondDraft} /></div>{activity.format === 'artifact' && <div className="learn-rating">{props.firstDraft?.file && <Button variant="outline" type="button" onClick={() => props.onDraft({ ...draft, file: props.firstDraft!.file, fileText: props.firstDraft!.fileText })}>{possessive(learners.first)} Datei übernehmen</Button>}{props.secondDraft?.file && <Button variant="outline" type="button" onClick={() => props.onDraft({ ...draft, file: props.secondDraft!.file, fileText: props.secondDraft!.fileText })}>Datei von {learners.second} übernehmen</Button>}</div>}</>}
           <form onSubmit={(event) => { event.preventDefault(); props.onSubmit() }}>{activity.format !== 'tutor' && <LearningAnswer activity={answerActivity} draft={draft} onChange={props.onDraft} disabled={busy} label={phaseLabel} />}
+            {needsConfidence && <section className="learn-confidence" aria-labelledby="confidence-heading"><div className="learn-confidence-heading"><Sparkles className="size-4" aria-hidden="true" /><div><h2 id="confidence-heading">Wie sicher bist du?</h2><p>Schätze ein, wie gut deine Antwort gleich abschneidet.</p></div></div><div className="learn-confidence-options" role="group" aria-label="Deine Zuversicht"><Button type="button" variant={props.confidence === 'low' ? 'secondary' : 'outline'} aria-pressed={props.confidence === 'low'} disabled={busy} onClick={() => props.onConfidence('low')}>Eher unsicher</Button><Button type="button" variant={props.confidence === 'medium' ? 'secondary' : 'outline'} aria-pressed={props.confidence === 'medium'} disabled={busy} onClick={() => props.onConfidence('medium')}>Teils sicher</Button><Button type="button" variant={props.confidence === 'high' ? 'secondary' : 'outline'} aria-pressed={props.confidence === 'high'} disabled={busy} onClick={() => props.onConfidence('high')}>Sehr sicher</Button></div><p className="learn-confidence-note">Wir vergleichen mit dem Ergebnis: stark, teilweise oder schwach. Eine passende Einschätzung bringt 2 Bonuspunkte; bei einer komplett falschen Antwort gibt es keinen Bonus.</p></section>}
             {props.restoredFileLost && <p className="learn-footnote">Dein Text wurde wiederhergestellt. Bitte wähle die Datei erneut aus.</p>}{props.error && <p className="learn-inline-error" role="alert">{props.error}</p>}
-            <div className="learn-form-footer"><span>{busy ? 'Wird geprüft …' : props.hintsUsed ? 'Mit Unterstützung' : props.theoryViewed ? 'Mit Lernhilfe' : `Versuch ${props.attemptNumber}`}</span><Button type="submit" variant="primary" disabled={busy || !ready || paired && !props.partner.trim()}>{busy ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : null}{busy ? 'Wird geprüft' : submitLabel}{!busy && <ArrowRight className="size-4" />}</Button></div>
+            <div className="learn-form-footer"><span>{busy ? 'Wird geprüft …' : props.hintsUsed ? 'Mit Unterstützung' : props.theoryViewed ? 'Mit Lernhilfe' : `Versuch ${props.attemptNumber}`}</span><Button type="submit" variant="primary" disabled={busy || !ready || paired && !props.partner.trim() || needsConfidence && !props.confidence}>{busy ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : null}{busy ? 'Wird geprüft' : submitLabel}{!busy && <ArrowRight className="size-4" />}</Button></div>
           </form>
         </motion.div></AnimatePresence>
       </>}

@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Circle, FileText, Lightbulb, RotateCcw, UserRound, UsersRound } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Check, CheckCircle2, Circle, FileText, Lightbulb, RotateCcw, Sparkles, UserRound, UsersRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BloomIndicator, LearningPopover, LearningReveal, LearningSurface } from '@/components/ui/learning'
 import { bloomLabels } from '@/lib/learning-engine'
@@ -10,6 +10,7 @@ type ReviewWorkspaceProps = {
   activity: LearningActivity
   draft: AnswerDraft
   review: ReviewResult
+  confidence: 'low' | 'medium' | 'high' | null
   mode: LearningMode
   supported: boolean
   attempts: PracticeAttempt[]
@@ -38,6 +39,8 @@ export function ReviewWorkspace(props: ReviewWorkspaceProps) {
   const feedback = review.assessmentPending
     ? 'Die fachliche Prüfung steht noch aus. Dein Kompetenzstand bleibt vorerst unverändert.'
     : review.feedback.split(/(?<=[.!?])\s+/)[0]
+  const confidenceLabel = props.confidence === 'high' ? 'Sehr sicher' : props.confidence === 'medium' ? 'Teils sicher' : props.confidence === 'low' ? 'Eher unsicher' : 'Nicht angegeben'
+  const confidenceAligned = props.confidence === 'high' && review.correctness === 'strong' || props.confidence === 'medium' && review.correctness === 'partial' || props.confidence === 'low' && review.correctness === 'incorrect'
   const renderCriterion = (criterion: NonNullable<ReviewResult['criteria']>[number]) => <li key={criterion.id} data-met={criterion.met}>
     <span className="learn-criterion-icon">{criterion.met ? <CheckCircle2 className="size-4" /> : <Circle className="size-4" />}</span>
     <div><span>{criterion.label}</span>{!criterion.met && <span className="learn-criterion-detail">{criterion.explanation}</span>}</div>
@@ -48,6 +51,7 @@ export function ReviewWorkspace(props: ReviewWorkspaceProps) {
       <div className="learn-review-outcome"><span className="learn-result-icon">{strong ? <Check className="size-4" /> : <Lightbulb className="size-4" />}</span><BloomIndicator stage={activity.stage} /></div>
       <h1 className="learn-title">{review.headline}</h1>
       <p className="learn-review-copy">{feedback}</p>
+      {props.confidence && <div className={`learn-confidence-result ${review.confidenceBonus ? 'is-bonus' : ''}`} role="status"><Sparkles className="size-5" aria-hidden="true" /><div><strong>{review.confidenceBonus ? `+${review.confidenceBonus} Bonuspunkte!` : 'Zuversicht festgehalten'}</strong><span>{review.confidenceBonus ? `Deine Einschätzung „${confidenceLabel}“ passt zum Ergebnis.` : review.assessmentPending ? `„${confidenceLabel}“ · Bonus nach der fachlichen Prüfung.` : review.correctness === 'incorrect' && confidenceAligned ? `Gute Selbsteinschätzung: „${confidenceLabel}“ passt. Für eine komplett falsche Antwort gibt es keinen Bonus.` : review.correctness === 'incorrect' ? `„${confidenceLabel}“ und das Ergebnis lagen auseinander. Für eine komplett falsche Antwort gibt es keinen Bonus.` : `„${confidenceLabel}“ · diesmal keine passende Übereinstimmung.`}</span></div></div>}
     </div>
 
     {!!criteria.length && <section className="learn-review-section">

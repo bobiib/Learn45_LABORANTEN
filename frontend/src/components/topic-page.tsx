@@ -14,7 +14,7 @@ import { Progress } from '@/components/ui/progress'
 import { ErrorNotice, LoadingCard, LoadingInline, SavedNotice } from '@/components/feedback'
 import { bloomStages } from '@/lib/fixtures'
 import type { BloomStage, LearningQuestion, Topic } from '@/lib/types'
-import { questionDifficulty } from '@/lib/question-difficulty'
+import { questionDifficulty, questionDifficultyClass } from '@/lib/question-difficulty'
 
 const preferredLengthLabels: Record<Topic['context']['preferredLength'], string> = { Short: 'Kurz', Balanced: 'Ausgewogen', Detailed: 'Ausführlich' }
 
@@ -957,7 +957,7 @@ function QuestionCard({
                 Als Nächstes
               </span>
             )}
-            <span className="inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{questionDifficulty(question)}</span>
+            <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${questionDifficultyClass(questionDifficulty(question))}`}>{questionDifficulty(question)}</span>
             {locked && (
               <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                 <LockKeyhole className="size-2.5" aria-hidden="true" /> Gesperrt

@@ -250,10 +250,17 @@ const demoApi: LearningApi = {
       return score
     }
     const orderedNodes = [...eligible].sort((a, b) => weaknesses(b.id) - weaknesses(a.id) || a.progress - b.progress)
-    for (const node of orderedNodes) {
-      if (node.progress >= 100 && weaknesses(node.id) < .35) continue
-      const question = topic.questions.find((item) => item.topicId === node.id && !history(item.id).length)
-      if (question) return { question, reason: weaknesses(node.id) > 1 ? `Deine letzten Übungen zeigen, dass ein weiterer Schritt zu „${node.label}“ hilfreich wäre.` : `Übe „${node.label}“, bevor du zum nächsten Thema gehst.`, generated: false }
+    const nodeRank = new Map(orderedNodes.map((node, index) => [node.id, index]))
+    const candidate = topic.questions
+      .filter((question) => eligible.some((node) => node.id === question.topicId) && !history(question.id).length)
+      .filter((question) => {
+        const node = eligible.find((item) => item.id === question.topicId)!
+        return !(node.progress >= 100 && weaknesses(node.id) < .35)
+      })
+      .sort((a, b) => Number(b.stage === 'Apply') - Number(a.stage === 'Apply') || nodeRank.get(a.topicId)! - nodeRank.get(b.topicId)!)[0]
+    if (candidate) {
+      const node = eligible.find((item) => item.id === candidate.topicId)!
+      return { question: candidate, reason: weaknesses(node.id) > 1 ? `Deine letzten Übungen zeigen, dass ein weiterer Schritt zu „${node.label}“ hilfreich wäre.` : `Übe „${node.label}“, bevor du zum nächsten Thema gehst.`, generated: false }
     }
     const node = orderedNodes.find((item) => weaknesses(item.id) >= .35 && topic.questions.some((question) => question.topicId === item.id))
     if (!node) return { question: null, reason: 'Du hast die verfügbaren Fragen bearbeitet. Im Moment braucht kein offener Lernschritt eine weitere Übungsfrage.', generated: false }
@@ -261,7 +268,7 @@ const demoApi: LearningApi = {
     const generated = {
       id: `question-demo-${Date.now()}`, topicId: node.id,
       title: `Neue Übung: ${node.label}`, prompt: `Erkläre anhand eines konkreten Beispiels die wichtigsten Gedanken zu „${node.label}“. Was würdest du tun und warum?`,
-      stage, mode: 'Solo' as const, duration: '5 min', status: 'recommended' as const,
+      stage: 'Apply', mode: 'Solo' as const, duration: '5 min', status: 'recommended' as const,
     }
     const updated = { ...topic, questions: [...topic.questions, generated] }
     saveStoredTopic(updated)
