@@ -117,10 +117,15 @@ function App() {
       if (isDemoMode) {
         for (let index = 0; index < window.localStorage.length; index += 1) {
           const key = window.localStorage.key(index)
-          if (!key?.startsWith('learn45.topic.')) continue
+          if (!key?.startsWith('learn45.topic.') || key.startsWith('learn45.topic.ready.') || key === 'learn45.deleted-topics.v1') continue
           try {
             const stored = window.localStorage.getItem(key)
-            if (stored) storedTopics.push(JSON.parse(stored) as Topic)
+            if (stored) {
+              const parsed = JSON.parse(stored) as unknown
+              if (parsed && typeof parsed === 'object' && Array.isArray((parsed as Topic).nodes)) {
+                storedTopics.push(parsed as Topic)
+              }
+            }
           } catch { /* Ignore an invalid local cache entry and keep loading the rest. */ }
         }
       }
@@ -435,7 +440,7 @@ function ProgressBar({ value, label, className = '' }: { value: number; label?: 
 function SkillProgressPanel({ topic, focusNodeId, compact = false }: { topic: Topic; focusNodeId?: string; compact?: boolean }) {
   const reduceMotion = useReducedMotion()
   const skills = learnerSkills.flatMap((skill) => {
-    const node = topic.nodes.find((item) => item.id === skill.nodeId)
+    const node = topic?.nodes?.find((item) => item.id === skill.nodeId)
     return node ? [{ ...skill, node }] : []
   })
   if (!skills.length) return null
@@ -472,15 +477,15 @@ function DashboardPage({ dashboard, busy, onOpenTopic, onStartSuggested, onDelet
   const goalAnchorRef = useRef<HTMLDivElement>(null)
   const goalMenuRef = useRef<HTMLDivElement>(null)
   const percent = Math.min(100, Math.round(dashboard.studyMinutes / dashboard.weeklyGoalMinutes * 100))
-  const hasTopics = dashboard.topics.length > 0
-  const suggestionTopic = dashboard.topics.find((item) => item.id === dashboard.lastSession.topicId) ?? dashboard.topics[0]
-  const suggestionNode = suggestionTopic?.nodes.filter((node) => node.eligible && node.progress < 100).sort((left, right) => left.progress - right.progress)[0] ?? suggestionTopic?.nodes[0]
-  const eligibleQuestions = suggestionTopic ? suggestionTopic.questions.filter((question) => suggestionTopic.nodes.some((node) => node.id === question.topicId && node.eligible)) : []
-  const suggestionQuestion = eligibleQuestions.find((question) => question.topicId === suggestionNode?.id && question.status !== 'completed') ?? eligibleQuestions[0] ?? suggestionTopic?.questions[0]
-  const coachingQuestion = suggestionTopic?.questions.find((question) => question.id === 'q-criteria') ?? suggestionQuestion
-  const independentQuestion = suggestionTopic?.questions.find((question) => question.id === 'q-revise') ?? suggestionQuestion
-  const practicedSteps = suggestionTopic?.nodes.filter((node) => node.progress > 0).length ?? 0
-  const totalSteps = suggestionTopic?.nodes.length ?? 0
+  const hasTopics = Array.isArray(dashboard.topics) && dashboard.topics.length > 0
+  const suggestionTopic = dashboard.topics?.find((item) => item?.id === dashboard.lastSession?.topicId) ?? dashboard.topics?.[0]
+  const suggestionNode = suggestionTopic?.nodes?.filter((node) => node.eligible && node.progress < 100).sort((left, right) => left.progress - right.progress)[0] ?? suggestionTopic?.nodes?.[0]
+  const eligibleQuestions = suggestionTopic?.questions ? suggestionTopic.questions.filter((question) => suggestionTopic.nodes?.some((node) => node.id === question.topicId && node.eligible)) : []
+  const suggestionQuestion = eligibleQuestions.find((question) => question.topicId === suggestionNode?.id && question.status !== 'completed') ?? eligibleQuestions[0] ?? suggestionTopic?.questions?.[0]
+  const coachingQuestion = suggestionTopic?.questions?.find((question) => question.id === 'q-criteria') ?? suggestionQuestion
+  const independentQuestion = suggestionTopic?.questions?.find((question) => question.id === 'q-revise') ?? suggestionQuestion
+  const practicedSteps = suggestionTopic?.nodes?.filter((node) => node.progress > 0).length ?? 0
+  const totalSteps = suggestionTopic?.nodes?.length ?? 0
   const coachingMinutes = Number.parseInt(coachingQuestion?.duration ?? '5 min', 10) || 5
   const practiceMinutes = Number.parseInt(independentQuestion?.duration ?? '7 min', 10) || 7
   const missionMinutes = coachingMinutes + practiceMinutes
