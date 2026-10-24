@@ -38,10 +38,13 @@ function App() {
   const [page, setPage] = useState<Page>('dashboard')
   const [dashboard, setDashboard] = useState<DashboardData>(initialDashboard)
   const [topic, setTopic] = useState<Topic>(initialTopic)
+  const [recommendedQuestionId, setRecommendedQuestionId] = useState<string | null>(null)
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [startWithCoach, setStartWithCoach] = useState(false)
   const [activeQuestion, setActiveQuestion] = useState<LearningQuestion>(initialTopic.questions[0])
   const [busy, setBusy] = useState(false)
+  const [recommendationBusy, setRecommendationBusy] = useState(false)
+  const [generatingQuestionNodeId, setGeneratingQuestionNodeId] = useState<string | null>(null)
   const [topicLoading, setTopicLoading] = useState(false)
   const [uploadingSource, setUploadingSource] = useState(false)
   const [appLoading, setAppLoading] = useState(true)
@@ -159,6 +162,7 @@ function App() {
     setSetupDone(!isNew)
     setPlanChatOpen(false)
     setSetupMessages(defaultSetupMessages)
+    setRecommendedQuestionId(null)
     setSelectedNode(focus?.nodeId ?? null)
     setQuestionFilters({ short: false, partner: focus?.partner ?? false, stage: 'All stages' })
     try {
@@ -290,6 +294,40 @@ function App() {
     startQuestion(question, withTutor)
   }
 
+  async function getNextRecommendedQuestion() {
+    setRecommendationBusy(true)
+    setTopicError('')
+    try {
+      const recommendation = await learningApi.recommendQuestion(topic.id)
+      if (!recommendation.question) {
+        setTopicError(recommendation.reason)
+        return
+      }
+      setRecommendedQuestionId(recommendation.question.id)
+      const nextTopic = topic.questions.some((question) => question.id === recommendation.question?.id)
+        ? topic
+        : { ...topic, questions: [...topic.questions, recommendation.question] }
+      updateTopic(nextTopic)
+      startQuestion(recommendation.question)
+    } catch (cause) {
+      setTopicError(cause instanceof Error ? cause.message : 'Die nächste passende Übung konnte nicht gefunden werden.')
+    } finally {
+      setRecommendationBusy(false)
+    }
+  }
+
+  async function generateQuestionForNode(nodeId: string) {
+    setGeneratingQuestionNodeId(nodeId)
+    setTopicError('')
+    try {
+      updateTopic(await learningApi.generateNodeQuestion(topic.id, nodeId))
+    } catch (cause) {
+      setTopicError(cause instanceof Error ? cause.message : 'Für diesen Lernschritt konnte keine Frage erstellt werden.')
+    } finally {
+      setGeneratingQuestionNodeId(null)
+    }
+  }
+
   const visibleQuestions = useMemo(() => {
     return topic.questions.filter((question) => {
       const matchesNode = !selectedNode || question.topicId === selectedNode
@@ -324,7 +362,7 @@ function App() {
             const nextQuestion = nextTopic.questions.find((question) => question.title === dashboard.lastSession.detail) ?? nextTopic.questions.find((question) => question.topicId === 'prompt-criteria') ?? nextTopic.questions[0]
             startQuestion(nextQuestion)
           }} /></>}
-          {page === 'topic' && (topicLoading ? <LoadingCard title="Themenbereich wird geöffnet" detail="Lernmaterial, Fortschritt und Lernpfad werden geladen…" /> : <RedesignedTopicPage topic={topic} uploading={uploadingSource} setupMode={setupMode && !setupDone} planChatOpen={planChatOpen} setupMessages={setupMessages} setupError={topicError} selectedNode={selectedNode} selectedTopicNode={selectedTopicNode} questions={visibleQuestions} questionFilters={questionFilters} search={search} context={contextDraft} contextSaving={contextSaving} contextSaved={contextSaved} showAllQuestions={showAllQuestions} onBack={() => setPage('dashboard')} onUpload={(file) => void beginUpload(file, topic.id)} onSelectNode={setSelectedNode} onFilter={setQuestionFilters} onSearch={setSearch} onStartQuestion={startQuestion} onToggleAllQuestions={() => setShowAllQuestions((show) => !show)} onTopicUpdated={handleScopedTopic} onTogglePlanChat={() => setPlanChatOpen((open) => !open)} onSaveContext={saveContext} onContextChange={setContextDraft} onRenameStart={(id, name) => { setEditingSource(id); setSourceName(name) }} editingSource={editingSource} sourceName={sourceName} onSourceNameChange={setSourceName} onRenameSource={(id) => void renameSource(id)} onCancelRename={() => setEditingSource(null)} onDeleteSource={(id) => void deleteSource(id)} sourceBusyId={sourceBusyId} onBackToDashboard={() => setPage('dashboard')} onRetry={() => void openTopic(topic.id, setupMode)} />)}
+          {page === 'topic' && (topicLoading ? <LoadingCard title="Themenbereich wird geöffnet" detail="Lernmaterial, Fortschritt und Lernpfad werden geladen…" /> : <RedesignedTopicPage topic={topic} recommendedQuestionId={recommendedQuestionId} uploading={uploadingSource} recommendationBusy={recommendationBusy} generatingQuestionNodeId={generatingQuestionNodeId} onGenerateQuestion={(nodeId) => void generateQuestionForNode(nodeId)} onRecommend={() => void getNextRecommendedQuestion()} setupMode={setupMode && !setupDone} planChatOpen={planChatOpen} setupMessages={setupMessages} setupError={topicError} selectedNode={selectedNode} selectedTopicNode={selectedTopicNode} questions={visibleQuestions} questionFilters={questionFilters} search={search} context={contextDraft} contextSaving={contextSaving} contextSaved={contextSaved} showAllQuestions={showAllQuestions} onBack={() => setPage('dashboard')} onUpload={(file) => void beginUpload(file, topic.id)} onSelectNode={setSelectedNode} onFilter={setQuestionFilters} onSearch={setSearch} onStartQuestion={startQuestion} onToggleAllQuestions={() => setShowAllQuestions((show) => !show)} onTopicUpdated={handleScopedTopic} onTogglePlanChat={() => setPlanChatOpen((open) => !open)} onSaveContext={saveContext} onContextChange={setContextDraft} onRenameStart={(id, name) => { setEditingSource(id); setSourceName(name) }} editingSource={editingSource} sourceName={sourceName} onSourceNameChange={setSourceName} onRenameSource={(id) => void renameSource(id)} onCancelRename={() => setEditingSource(null)} onDeleteSource={(id) => void deleteSource(id)} sourceBusyId={sourceBusyId} onBackToDashboard={() => setPage('dashboard')} onRetry={() => void openTopic(topic.id, setupMode)} />)}
           {page === 'question' && <Suspense fallback={<LoadingCard title="Deine Übung wird geöffnet" detail="Der Lernbereich wird vorbereitet …" />}><LearningSession key={`${topic.id}-${activeQuestion.id}`} topic={topic} question={activeQuestion} startWithCoach={startWithCoach} onBack={() => setPage('topic')} onHome={() => setPage('dashboard')} onProgress={(next) => { updateTopic(next); setDashboard((current) => ({ ...current, lastSession: { topicId: next.id, title: next.title, detail: activeQuestion.title, progress: next.progress } })) }} /></Suspense>}
         </motion.div>
       </AnimatePresence>}

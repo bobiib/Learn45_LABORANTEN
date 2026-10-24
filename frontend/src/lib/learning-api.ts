@@ -16,7 +16,21 @@ export const practiceApi = {
       return evaluatePractice(input)
     }
     const { attachment, ...withPreview } = input
-    const payload = { ...withPreview, attachmentText: undefined }
+    const selectedAnswers = input.activity?.options
+      ?.filter((option) => input.selectedOptions?.includes(option.id))
+      .map((option) => option.text) ?? []
+    const answer = [input.answer, ...selectedAnswers, attachment ? undefined : input.attachmentText]
+      .map((value) => value?.trim())
+      .filter((value): value is string => Boolean(value))
+      .join('\n\n')
+      .slice(0, 12000)
+    const payload = {
+      questionId: input.questionId,
+      answer: answer || (attachment ? `Submitted work: ${attachment.name}` : 'Submitted selected answer.'),
+      hintsUsed: input.hintsUsed,
+      tutorUsed: input.tutorUsed || input.supportUsed || input.theoryUsed || input.learningMode === 'coach',
+      difficulty: input.difficulty,
+    }
     const body = attachment ? new FormData() : JSON.stringify(payload)
     if (body instanceof FormData) {
       body.append('file', attachment!)

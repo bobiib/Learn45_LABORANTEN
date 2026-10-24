@@ -1,3 +1,12 @@
-fastapi
-uvicorn[standard]
-pydantic-settings
+fastapi>=0.115
+uvicorn[standard]>=0.34
+pydantic-settings>=2.7
+sqlmodel>=0.0.24
+google-genai>=1.0
+python-multipart>=0.0.20
+PyMuPDF>=1.25,<2
+python-docx>=1.1
+python-pptx>=1.0
+pytesseract>=0.3.13
+Pillow>=11.0
+python-dotenv>=1.0

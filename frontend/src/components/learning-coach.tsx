@@ -3,6 +3,7 @@ import { TextStreamChatTransport, type UIMessage } from 'ai'
 import { useChat } from '@ai-sdk/react'
 import { ArrowUp, ArrowUpRight, LoaderCircle, MessagesSquare, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { AIConfirmationDialog } from '@/components/ui/ai-confirmation-dialog'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -77,6 +78,7 @@ function streamResponse(text: string, signal?: AbortSignal) {
 
 export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages, title, detail, compact = false, onMessagesChange, onTopicUpdated, workspace = false, active = true, mode = 'coach', activity, learnerAnswer, review, onActivate, onSupport, disabled = false, turnContext }: AIChatProps) {
   const [input, setInput] = useState('')
+  const [pendingText, setPendingText] = useState('')
   const [localError, setLocalError] = useState('')
   const [initial] = useState(() => toUiMessages(initialMessages))
   const transcriptRef = useRef<HTMLDivElement>(null)
@@ -149,10 +151,18 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
   function send(text: string) {
     if (!text.trim() || busy || disabled || !active && !onActivate) return
     if (!active) onActivate?.()
+    if (!isDemoMode) {
+      setPendingText(text.trim())
+      return
+    }
+    sendConfirmed(text.trim())
+  }
+
+  function sendConfirmed(text: string) {
     setLocalError('')
     setInput('')
     onSupport?.()
-    void sendMessage({ text: text.trim() })
+    void sendMessage({ text })
   }
 
   if (workspace) return <div>
@@ -170,6 +180,14 @@ export function AIChatPanel({ kind, chatId, topicId, questionId, initialMessages
         </div>
       </>}
     </LearningSurface>
+    {!isDemoMode && <AIConfirmationDialog
+      open={Boolean(pendingText)}
+      title="Nachricht an den KI-Coach senden?"
+      description="Der Coach verwendet deine Nachricht und den Kontext dieser Lerneinheit für seine Antwort."
+      details="Gesendet werden deine Nachricht, die Übungsfrage, deine bisherige Antwort, relevante Lernnotizen und gegebenenfalls das Feedback. Der Chatverlauf wird nicht in Lea gespeichert."
+      onCancel={() => setPendingText('')}
+      onConfirm={() => { const text = pendingText; setPendingText(''); sendConfirmed(text) }}
+    />}
   </div>
 
   return <Card className={`panel min-w-0 ${compact ? 'p-4' : ''}`}>

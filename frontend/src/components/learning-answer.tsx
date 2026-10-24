@@ -31,7 +31,7 @@ export function LearningAnswer({ activity, draft, onChange, disabled, label = 'D
     if (!file || disabled) return
     setFileError('')
     const extension = `.${file.name.split('.').pop()?.toLowerCase()}`
-    const accepts = (activity.accept ?? '.txt,.md,.pdf,.docx,.py,.zip').split(',')
+    const accepts = (activity.accept ?? '.txt,.md,.pdf,.docx,.py').split(',')
     if (!accepts.includes(extension)) {
       setFileError('Dieses Dateiformat passt nicht zur Aufgabe. Bitte wähle eines der angegebenen Formate.')
       return

@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent, t
 import { motion } from 'framer-motion'
 import {
   ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Clock3, FileText, LockKeyhole,
-  MessageCircle, MousePointerClick, Pencil, Plus, Target, Trash2, Upload, UsersRound, X,
+  MessageCircle, MousePointerClick, Pencil, Plus, Sparkles, Target, Trash2, Upload, UsersRound, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -28,6 +28,7 @@ const bloomStageLabels: Record<BloomStage, string> = {
 
 const LearningGraph = lazy(() => import('@/components/learning-graph'))
 const AIChatPanel = lazy(() => import('@/components/ai-chat').then((module) => ({ default: module.AIChatPanel })))
+const TopicPlanChat = lazy(() => import('@/components/topic-plan-chat').then((module) => ({ default: module.TopicPlanChat })))
 
 function ProgressBar({ value, label, className = '' }: { value: number; label?: string; className?: string }) {
   return (
@@ -50,7 +51,12 @@ function formatExamCountdown(date: string) {
 
 export function TopicPage(props: {
   topic: Topic
+  recommendedQuestionId: string | null
   uploading: boolean
+  recommendationBusy: boolean
+  generatingQuestionNodeId: string | null
+  onRecommend: () => void
+  onGenerateQuestion: (nodeId: string) => void
   setupMode: boolean
   planChatOpen: boolean
   setupMessages: ChatMessage[]
@@ -88,7 +94,8 @@ export function TopicPage(props: {
 }) {
   const uploadRef = useRef<HTMLInputElement>(null)
   const recommendedQuestion =
-    props.topic.questions.find(
+    props.topic.questions.find((question) => question.id === props.recommendedQuestionId)
+    ?? props.topic.questions.find(
       (question) => question.status === 'recommended' && props.topic.nodes.find((node) => node.id === question.topicId)?.eligible,
     )
     ?? props.topic.questions.find((question) => props.topic.nodes.find((node) => node.id === question.topicId)?.eligible)
@@ -155,11 +162,11 @@ export function TopicPage(props: {
                 </div>
                 <Button
                   variant="primary"
-                  disabled={!recommendedQuestion}
-                  onClick={() => recommendedQuestion && props.onStartQuestion(recommendedQuestion)}
+                  disabled={props.recommendationBusy || !props.topic.nodes.some((node) => node.eligible)}
+                  onClick={props.onRecommend}
                 >
                   <span className="inline-flex items-center gap-2">
-                    Empfohlene Aufgabe starten <ArrowRight className="size-4" aria-hidden="true" />
+                    {props.recommendationBusy ? <LoadingInline label="Passende Übung wird gesucht…" /> : <>Nächste Übung empfehlen <ArrowRight className="size-4" aria-hidden="true" /></>}
                   </span>
                 </Button>
               </div>
@@ -190,6 +197,8 @@ export function TopicPage(props: {
               recommendedNodeId={recommendedQuestion?.topicId ?? null}
               onSelectNode={props.onSelectNode}
               onStudyNode={handleStudyNode}
+              generatingQuestionNodeId={props.generatingQuestionNodeId}
+              onGenerateQuestion={props.onGenerateQuestion}
               onTopicUpdated={props.onTopicUpdated}
               onOpenPlanChat={() => {
                 const input = document.getElementById('plan-chat-input')
@@ -200,11 +209,9 @@ export function TopicPage(props: {
               }}
             />
             <aside className="space-y-4 xl:sticky xl:top-20">
-              <PlanConversation
-                topicId={props.topic.id}
-                messages={props.setupMessages}
-                onTopicUpdated={props.onTopicUpdated}
-              />
+              <Suspense fallback={<Card className="panel p-4"><LoadingInline label="Lernpartner wird geöffnet…" /></Card>}>
+                <TopicPlanChat key={props.topic.id} topic={props.topic} onTopicUpdated={props.onTopicUpdated} />
+              </Suspense>
               <LearningContextCard
                 context={props.context}
                 saving={props.contextSaving}
@@ -334,6 +341,8 @@ function TopicPlanPanel({
   selectedNode,
   recommendedNode,
   recommendedNodeId,
+  generatingQuestionNodeId,
+  onGenerateQuestion,
   onSelectNode,
   onStudyNode,
   onTopicUpdated,
@@ -344,6 +353,8 @@ function TopicPlanPanel({
   selectedNode: string | null
   recommendedNode: Topic['nodes'][number] | null
   recommendedNodeId: string | null
+  generatingQuestionNodeId: string | null
+  onGenerateQuestion: (nodeId: string) => void
   onSelectNode: (id: string | null) => void
   onStudyNode: (id: string) => void
   onTopicUpdated: (topic: Topic) => void
@@ -586,9 +597,14 @@ function TopicPlanPanel({
                   {completedInNode}/{nodeQuestions.length} abgeschlossen
                 </span>
               </div>
-              <Button variant="outline" size="sm" onClick={handleAddQuestion}>
-                <Plus className="size-3.5" aria-hidden="true" /> Frage hinzufügen
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={handleAddQuestion}>
+                  <Plus className="size-3.5" aria-hidden="true" /> Frage hinzufügen
+                </Button>
+                <Button variant="secondary" size="sm" disabled={generatingQuestionNodeId === selectedTopicNode.id} onClick={() => onGenerateQuestion(selectedTopicNode.id)}>
+                  {generatingQuestionNodeId === selectedTopicNode.id ? <LoadingInline label="KI erstellt eine Frage…" /> : <><Sparkles className="size-3.5" aria-hidden="true" /> KI-Frage erstellen</>}
+                </Button>
+              </div>
             </div>
             {nodeQuestions.length > 0 ? (
               <div className="space-y-2">
@@ -729,39 +745,6 @@ function SetupPanel({
         </p>
       </div>
     </section>
-  )
-}
-
-function PlanConversation({
-  topicId,
-  messages,
-  onTopicUpdated,
-}: {
-  topicId: string
-  messages: ChatMessage[]
-  onTopicUpdated: (topic: Topic) => void
-}) {
-  return (
-    <Suspense
-      fallback={
-        <Card className="panel p-4">
-          <LoadingInline label="Lerncoach wird geöffnet…" />
-        </Card>
-      }
-    >
-      <AIChatPanel
-        kind="scope"
-        compact
-        chatId={`scope-${topicId}`}
-        topicId={topicId}
-        initialMessages={messages}
-        title="Lerncoach für den Lernpfad"
-        detail="Passe Abschnitte an, setze Schwerpunkte aus deinen Materialien oder bearbeite Fragen."
-        inputId="plan-chat-input"
-        placeholder="z. B. „Nur Förderkriterien“ oder „Letzte Frage entfernen …“"
-        onTopicUpdated={onTopicUpdated}
-      />
-    </Suspense>
   )
 }
 
